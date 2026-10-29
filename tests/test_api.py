@@ -6,11 +6,11 @@ import pytest
 # lors de l'exécution de la suite sur une machine propre.
 os.environ.setdefault("JWT_SECRET", "test-only-secret-not-for-production")
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.security import get_current_user
-from app.api import comptes as comptes_routes
 from app.api import comptes as comptes_routes
 from app.core.config import Settings
 
@@ -173,7 +173,7 @@ def test_limitation_tentatives_connexion(monkeypatch):
     comptes_routes._enregistrer_echec_connexion(email, adresse_ip)
     comptes_routes._enregistrer_echec_connexion(email, adresse_ip)
 
-    with pytest.raises(Exception) as erreur:
+    with pytest.raises(HTTPException) as erreur:
         comptes_routes._verifier_limite_connexion(email, adresse_ip)
 
     assert getattr(erreur.value, "status_code", None) == 429
