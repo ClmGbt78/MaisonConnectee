@@ -1,6 +1,9 @@
 from typing import Protocol
 
-from app.domotique.automations import AutomatisationRepository
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domotique.automations import AutomatisationRepository
 
 
 class AdaptateurCapteur(Protocol):
@@ -17,7 +20,7 @@ class AdaptateurCapteur(Protocol):
 class AdaptateurCapteurSimulation:
     """Lit les dernières mesures injectées dans SQLite par l'interface de simulation."""
 
-    def __init__(self, repository: AutomatisationRepository):
+    def __init__(self, repository: "AutomatisationRepository"):
         self.repository = repository
 
     def lire_mesure(self, capteur_id: str) -> dict | None:
