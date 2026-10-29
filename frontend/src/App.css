@@ -1479,3 +1479,19 @@ border-radius: 18px;
 font-size: 26px;
 }
 }
+
+.logout-button {
+  margin-left: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: rgba(148, 163, 184, 0.12);
+}
