@@ -1495,3 +1495,23 @@ font-size: 26px;
 .logout-button:hover {
   background: rgba(148, 163, 184, 0.12);
 }
+
+
+.domotic-brightness {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.9rem 0 1rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+}
+
+.domotic-brightness input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent, #60a5fa);
+  cursor: pointer;
+}
+
+.domotic-brightness input[type="range"]:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}

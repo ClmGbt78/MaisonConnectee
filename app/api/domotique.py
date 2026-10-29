@@ -24,6 +24,10 @@ class CommandeAppareil(BaseModel):
     allume: bool
 
 
+class ReglageLuminosite(BaseModel):
+    luminosite: int = Field(ge=0, le=100)
+
+
 class NouvelAppareil(BaseModel):
     id: str = Field(min_length=1, max_length=100)
     nom: str = Field(min_length=1, max_length=120)
@@ -120,4 +124,26 @@ def modifier_appareil(
         raise HTTPException(
             status_code=503,
             detail="Le pilote domotique n’a pas pu appliquer la commande",
+        )
+
+
+@router.patch("/appareils/{appareil_id}/luminosite")
+def regler_luminosite(
+    appareil_id: str,
+    reglage: ReglageLuminosite,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_luminosite(appareil_id, reglage.luminosite)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La luminosité n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la luminosité",
         )
