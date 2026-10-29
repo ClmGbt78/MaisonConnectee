@@ -44,3 +44,28 @@ Ne réutilise pas la clé d'exemple en production. Ce projet reste destiné au d
   ```
 
   Ne promeus que des comptes de confiance et ne partage pas le fichier `comptes.db`.
+
+## Architecture domotique
+
+La domotique est organisée en couches pour séparer l'API, les règles métier, le stockage et les pilotes :
+
+- `app/api/domotique.py` : routes HTTP, authentification et traduction des erreurs en réponses API.
+- `app/domotique/service.py` : règles métier et validation des commandes.
+- `app/domotique/repository.py` : accès à SQLite.
+- `app/domotique/adapters/` : interface des pilotes et adaptateur de simulation local.
+- `app/domotique/models.py` : capacités exposées par type d'appareil.
+
+L'adaptateur actuel est **une simulation** : aucune commande n'est envoyée à du matériel. Les capteurs sont en lecture seule. Les réponses des appareils incluent le champ `capacites`, et la liste peut être filtrée avec `GET /api/domotique/appareils?piece=Salon&type=lumiere`.
+
+### Données locales
+
+La domotique continue d'utiliser `systeme_historique.db`. L'initialisation crée la table si nécessaire et ajoute les appareils de démonstration uniquement s'ils n'existent pas ; elle ne supprime pas les lignes ni ne réinitialise les états existants. `comptes.db` n'est pas modifiée par cette architecture.
+
+Avant toute future évolution du schéma, fais une copie des bases locales. Ne supprime pas les fichiers SQLite pour résoudre un problème de démarrage.
+
+### Tests
+
+Les tests unitaires du dépôt et du service domotique utilisent une base SQLite temporaire :
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
