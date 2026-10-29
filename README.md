@@ -82,3 +82,17 @@ Routes authentifiées :
 - `POST /api/domotique/scenes/{scene_id}/appliquer` : appliquer les trois réglages à chaque lumière.
 
 Les scènes sont enregistrées dans une table SQLite dédiée `scenes_lumineuses`. Leur création ou suppression ne modifie pas les enregistrements des appareils. L'application d'une scène pilote les lumières l'une après l'autre ; si un pilote échoue, l'API signale une erreur et certains réglages déjà appliqués peuvent nécessiter une vérification. L'adaptateur actuel est simulé et ne commande aucun matériel réel.
+
+
+## Automatisations domotiques
+
+Les automatisations horaires sont exécutées localement par le backend FastAPI (vérification toutes les 15 secondes, selon l'heure locale de l'ordinateur). Elles restent enregistrées dans SQLite après un redémarrage.
+
+- Une règle associe une scène lumineuse, une heure, un ou plusieurs jours de la semaine et, facultativement, une pièce.
+- Une extinction différée facultative peut être ajoutée après l'application de la scène (de 1 à 1440 minutes). Elle éteint les lumières de la pièce ciblée, ou toutes les lumières si aucune pièce n'est sélectionnée.
+- Les règles peuvent être activées/désactivées ou supprimées depuis l'interface.
+- Routes authentifiées : `GET/POST /api/domotique/automatisations`, `PATCH /api/domotique/automatisations/{id}` (corps `{"active": false}`) et `DELETE /api/domotique/automatisations/{id}`.
+
+Le moteur utilise l'heure locale de Windows et fonctionne tant que le backend est démarré. Si le PC ou le backend est arrêté à l'heure prévue, la règle est exécutée au prochain démarrage si son créneau du jour est déjà passé ; une règle ne s'exécute qu'une fois par jour. L'extinction différée est conservée et sera traitée au prochain démarrage si son échéance est dépassée.
+
+Le moteur est prévu pour l'exécution locale avec un seul processus FastAPI. Ne lance pas plusieurs workers Uvicorn, car chaque processus démarrerait son propre moteur. Les actions sont simulées par l'adaptateur actuel et n'envoient aucune commande à du matériel réel.
