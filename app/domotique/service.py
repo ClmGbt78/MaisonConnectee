@@ -17,6 +17,10 @@ class CommandeNonSupportee(Exception):
     pass
 
 
+class ErreurAdaptateur(Exception):
+    pass
+
+
 class AppareilService:
     def __init__(self, repository: AppareilRepository, adaptateur: AdaptateurAppareil):
         self.repository = repository
@@ -56,7 +60,10 @@ class AppareilService:
         if "marche_arret" not in capacites_pour_type(appareil["type"]):
             raise CommandeNonSupportee
         # L'état n'est persisté qu'après confirmation de l'adaptateur.
-        etat_confirme = self.adaptateur.appliquer_etat(appareil_id, allume)
+        try:
+            etat_confirme = self.adaptateur.appliquer_etat(appareil_id, allume)
+        except Exception as erreur:
+            raise ErreurAdaptateur("Le pilote n’a pas pu appliquer la commande") from erreur
         resultat = self.repository.definir_etat(appareil_id, etat_confirme)
         if resultat is None:
             raise AppareilIntrouvable
