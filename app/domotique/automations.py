@@ -211,6 +211,10 @@ class AutomatisationRepository:
             db.execute("UPDATE automatisations_conditionnelles SET derniere_execution = ? WHERE id = ?",
                        (date.isoformat(timespec="seconds"), identifiant))
 
+    def rearmer_conditionnelle(self, identifiant: str) -> None:
+        with sqlite3.connect(self.db_path) as db:
+            db.execute("UPDATE automatisations_conditionnelles SET derniere_execution = NULL WHERE id = ?", (identifiant,))
+
 
 class MoteurAutomatisations:
     """Moteur local : vérifie les horaires périodiquement, sans service externe."""
@@ -282,9 +286,9 @@ class MoteurAutomatisations:
                 derniere_presence = datetime.fromisoformat(mesure["mise_a_jour"])
                 declencher = (maintenant - derniere_presence).total_seconds() >= int(regle["duree_absence"] or 0)
             if not declencher:
+                self.repository.rearmer_conditionnelle(regle["id"])
                 continue
-            derniere = datetime.fromisoformat(regle["derniere_execution"]) if regle["derniere_execution"] else None
-            if derniere and (maintenant - derniere).total_seconds() < 300:
+            if regle["derniere_execution"]:
                 continue
             if regle["condition"] == "absence_prolongee":
                 lumieres = self.service_domotique.lister(piece=regle["piece"], type_appareil="lumiere")
