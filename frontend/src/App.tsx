@@ -35,6 +35,7 @@ type Appareil = {
   piece: string;
   type: string;
   allume: boolean;
+  capacites?: string[];
 };
 
 type HistoriqueIndicateur = {
@@ -1351,12 +1352,14 @@ function App() {
 
                 <span
                   className={
-                    appareil.allume
+                    appareil.type !== "capteur" && appareil.allume
                       ? "domotic-status on"
                       : "domotic-status"
                   }
                 >
-                  {appareil.allume ? "Allumé" : "Éteint"}
+                  {appareil.type === "capteur"
+                    ? "Lecture seule"
+                    : appareil.allume ? "Allumé" : "Éteint"}
                 </span>
               </div>
 
@@ -1364,23 +1367,26 @@ function App() {
               <p className="domotic-room">{appareil.piece}</p>
 
               <div className="domotic-card-bottom">
-                <span>Alimentation</span>
+                <span>{appareil.type === "capteur" ? "Capteur" : "Alimentation"}</span>
 
-                <button
-                  type="button"
-                  className={
-                    appareil.allume
-                      ? "toggle-switch on"
-                      : "toggle-switch"
-                  }
-                  role="switch"
-                  aria-checked={appareil.allume}
-                  aria-label={`Alimentation : ${appareil.nom}`}
-                  disabled={appareilsEnCours.includes(appareil.id)}
-                  onClick={() => void basculerAppareil(appareil)}
-                >
-                  <span className="toggle-knob" />
-                </button>
+                {appareil.type !== "capteur" &&
+                  (appareil.capacites?.includes("marche_arret") ?? true) && (
+                    <button
+                      type="button"
+                      className={
+                        appareil.allume
+                          ? "toggle-switch on"
+                          : "toggle-switch"
+                      }
+                      role="switch"
+                      aria-checked={appareil.allume}
+                      aria-label={`Alimentation : ${appareil.nom}`}
+                      disabled={appareilsEnCours.includes(appareil.id)}
+                      onClick={() => void basculerAppareil(appareil)}
+                    >
+                      <span className="toggle-knob" />
+                    </button>
+                  )}
               </div>
 
               {utilisateurConnecte.role === "admin" && (
