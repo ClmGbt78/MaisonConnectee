@@ -210,11 +210,25 @@ function App() {
   const [metricsError, setMetricsError] = useState(false);
   const [historique, setHistorique] = useState<HistoriqueIndicateur[]>([]);
   const [erreurHistorique, setErreurHistorique] = useState(false);
-  const maintenant = Date.now();
+  const [maintenant, setMaintenant] = useState<number | null>(null);
   const [periodeHistorique, setPeriodeHistorique] =
     useState<15 | 60 | 1440>(60);
+
+  useEffect(() => {
+    const intervalleHorloge = window.setInterval(() => {
+      setMaintenant(Date.now());
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalleHorloge);
+    };
+  }, []);
   const historiqueGraphique = historique
     .filter((mesure) => {
+      if (maintenant === null) {
+        return false;
+      }
+
       const heureMesure = new Date(mesure.heure_utc).getTime();
       const dureeMs = periodeHistorique * 60 * 1000;
 
@@ -333,13 +347,16 @@ function App() {
   }
 
   useEffect(() => {
-    void chargerAppareils();
+    const chargementInitial = window.setTimeout(() => {
+      void chargerAppareils();
+    }, 0);
 
     const intervalle = window.setInterval(() => {
       void chargerAppareils();
     }, 3000);
 
     return () => {
+      window.clearTimeout(chargementInitial);
       window.clearInterval(intervalle);
     };
   }, []);
