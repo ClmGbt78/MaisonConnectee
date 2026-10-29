@@ -53,6 +53,14 @@ type Automatisation = {
   id: string; nom: string; active: boolean; heure: string; jours: number[];
   scene_id: string; piece: string | null; extinction_minutes: number | null;
 };
+type Capteur = {
+  id: string; nom: string; piece: string;
+  mesure: { type_mesure: string; valeur: number; mise_a_jour: string } | null;
+};
+type AutomatisationConditionnelle = {
+  id: string; nom: string; active: boolean; capteur_id: string; condition: string;
+  seuil: number | null; duree_absence: number | null; scene_id: string | null; piece: string | null;
+};
 
 const JOURS_SEMAINE = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -363,6 +371,15 @@ function App() {
   const [pieceAutomatisation, setPieceAutomatisation] = useState("");
   const [extinctionAutomatisation, setExtinctionAutomatisation] = useState("");
   const [automatisationEnCours, setAutomatisationEnCours] = useState(false);
+  const [capteurs, setCapteurs] = useState<Capteur[]>([]);
+  const [conditions, setConditions] = useState<AutomatisationConditionnelle[]>([]);
+  const [nomCondition, setNomCondition] = useState("");
+  const [capteurCondition, setCapteurCondition] = useState("");
+  const [typeCondition, setTypeCondition] = useState("luminosite_inferieure");
+  const [seuilCondition, setSeuilCondition] = useState(30);
+  const [dureeAbsenceCondition, setDureeAbsenceCondition] = useState(15);
+  const [sceneCondition, setSceneCondition] = useState("");
+  const [pieceCondition, setPieceCondition] = useState("");
 
   async function chargerAppareils() {
     try {
@@ -528,6 +545,83 @@ function App() {
     } catch (erreur) {
       setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
     } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function chargerCapteursEtConditions() {
+    try {
+      const [capteursResponse, conditionsResponse] = await Promise.all([
+        apiFetch("/api/domotique/automatisations/capteurs"),
+        apiFetch("/api/domotique/automatisations/conditionnelles"),
+      ]);
+      if (!capteursResponse.ok || !conditionsResponse.ok) throw new Error("Chargement impossible");
+      setCapteurs(await capteursResponse.json());
+      setConditions(await conditionsResponse.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les capteurs et automatisations conditionnelles.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    void chargerCapteursEtConditions();
+    const interval = window.setInterval(() => void chargerCapteursEtConditions(), 5000);
+    return () => window.clearInterval(interval);
+  }, [utilisateurConnecte]);
+
+  async function simulerCapteur(capteur: Capteur, type_mesure: "luminosite" | "presence", valeur: number) {
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/capteurs/${encodeURIComponent(capteur.id)}/mesure`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type_mesure, valeur }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Mise à jour du capteur impossible.");
+      setCapteurs((items) => items.map((item) => item.id === capteur.id ? { ...item, mesure: data } : item));
+      setMessageDomotique("Valeur de capteur simulée enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de simulation.");
+    }
+  }
+
+  async function creerConditionnelle(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch("/api/domotique/automatisations/conditionnelles", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: nomCondition.trim(), capteur_id: capteurCondition, condition: typeCondition,
+          seuil: typeCondition === "luminosite_inferieure" ? seuilCondition : null,
+          duree_absence: typeCondition === "absence_prolongee" ? dureeAbsenceCondition : null,
+          scene_id: typeCondition === "absence_prolongee" ? null : sceneCondition,
+          piece: pieceCondition || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Création impossible.");
+      setConditions((items) => [...items, data]);
+      setNomCondition("");
+      setMessageDomotique("Automatisation conditionnelle créée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de création.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function basculerConditionnelle(item: AutomatisationConditionnelle) {
+    const response = await apiFetch(`/api/domotique/automatisations/conditionnelles/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !item.active }),
+    });
+    const data = await response.json();
+    if (response.ok) setConditions((items) => items.map((current) => current.id === item.id ? data : current));
+    else setMessageDomotique(data.detail || "Modification impossible.");
+  }
+
+  async function supprimerConditionnelle(item: AutomatisationConditionnelle) {
+    if (!window.confirm(`Supprimer la règle « ${item.nom} » ?`)) return;
+    const response = await apiFetch(`/api/domotique/automatisations/conditionnelles/${item.id}`, { method: "DELETE" });
+    if (response.ok) setConditions((items) => items.filter((current) => current.id !== item.id));
+    else setMessageDomotique("Suppression impossible.");
   }
 
   async function basculerAppareil(appareil: Appareil) {
@@ -1611,6 +1705,82 @@ function App() {
                 </article>
               ))}
               {automatisations.length === 0 && <p className="metric-detail">Aucune automatisation configurée.</p>}
+            </div>
+          </section>
+
+          <section className="scenes-panel automation-panel">
+            <div className="section-heading">
+              <div><h2>Automatisations conditionnelles</h2><p>Déclenche une scène selon la luminosité ou la présence détectée</p></div>
+              <span className="module-count">{conditions.length} RÈGLES</span>
+            </div>
+            <div className="sensor-simulation-list">
+              <h3>Capteurs simulés</h3>
+              {capteurs.map((capteur) => (
+                <article className="scene-card" key={capteur.id}>
+                  <div className="scene-details"><strong>{capteur.nom} · {capteur.piece}</strong>
+                    <span>{capteur.mesure ? `${capteur.mesure.type_mesure} : ${capteur.mesure.valeur} · actualisé ${new Date(capteur.mesure.mise_a_jour).toLocaleTimeString("fr-FR")}` : "Aucune mesure reçue"}</span>
+                  </div>
+                  {capteur.id.includes("luminosite") ? (
+                    <label className="sensor-control">Luminosité simulée
+                      <input type="range" min="0" max="100" value={capteur.mesure?.valeur ?? 80} onChange={(event) => void simulerCapteur(capteur, "luminosite", Number(event.target.value))} />
+                      <span>{capteur.mesure?.valeur ?? 80} %</span>
+                    </label>
+                  ) : (
+                    <button type="button" onClick={() => void simulerCapteur(capteur, "presence", capteur.mesure?.valeur ? 0 : 1)}>
+                      {capteur.mesure?.valeur ? "Simuler une absence" : "Simuler une présence"}
+                    </button>
+                  )}
+                </article>
+              ))}
+              {capteurs.length === 0 && <p className="metric-detail">Ajoute un appareil de type capteur pour commencer.</p>}
+            </div>
+            <form className="scene-form" onSubmit={creerConditionnelle}>
+              <label htmlFor="nom-condition">Nom de la règle</label>
+              <input id="nom-condition" value={nomCondition} onChange={(event) => setNomCondition(event.target.value)} placeholder="Ex. : Éclairage à la tombée du jour" required maxLength={80} />
+              <label htmlFor="type-condition">Déclencheur</label>
+              <select id="type-condition" value={typeCondition} onChange={(event) => setTypeCondition(event.target.value)}>
+                <option value="luminosite_inferieure">Luminosité inférieure au seuil</option>
+                <option value="presence_detectee">Présence détectée</option>
+                <option value="absence_prolongee">Absence prolongée</option>
+              </select>
+              <label htmlFor="capteur-condition">Capteur</label>
+              <select id="capteur-condition" value={capteurCondition} onChange={(event) => setCapteurCondition(event.target.value)} required>
+                <option value="">Choisir un capteur</option>
+                {capteurs.filter((capteur) => typeCondition === "luminosite_inferieure" ? capteur.id.includes("luminosite") : capteur.id.includes("presence")).map((capteur) => <option key={capteur.id} value={capteur.id}>{capteur.nom} · {capteur.piece}</option>)}
+              </select>
+              {typeCondition === "luminosite_inferieure" && <>
+                <label htmlFor="seuil-condition">Seuil de luminosité (%)</label>
+                <input id="seuil-condition" type="number" min="0" max="100" value={seuilCondition} onChange={(event) => setSeuilCondition(Number(event.target.value))} />
+              </>}
+              {typeCondition === "absence_prolongee" && <>
+                <label htmlFor="duree-absence">Durée d'absence (minutes)</label>
+                <input id="duree-absence" type="number" min="1" max="1440" value={dureeAbsenceCondition} onChange={(event) => setDureeAbsenceCondition(Number(event.target.value))} />
+              </>}
+              {typeCondition !== "absence_prolongee" && <>
+                <label htmlFor="scene-condition">Scène à appliquer</label>
+                <select id="scene-condition" value={sceneCondition} onChange={(event) => setSceneCondition(event.target.value)} required>
+                  <option value="">Choisir une scène</option>
+                  {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.nom}</option>)}
+                </select>
+              </>}
+              <label htmlFor="piece-condition">Pièce ciblée (facultatif)</label>
+              <select id="piece-condition" value={pieceCondition} onChange={(event) => setPieceCondition(event.target.value)}>
+                <option value="">Toutes les pièces</option>
+                {[...new Set(appareils.filter((appareil) => appareil.type === "lumiere").map((appareil) => appareil.piece))].sort().map((piece) => <option key={piece} value={piece}>{piece}</option>)}
+              </select>
+              <button type="submit" disabled={automatisationEnCours || !nomCondition.trim() || !capteurCondition || (typeCondition !== "absence_prolongee" && (!sceneCondition || scenes.length === 0))}>Créer la règle conditionnelle</button>
+            </form>
+            <div className="automation-list">
+              {conditions.map((item) => (
+                <article className="scene-card" key={item.id}>
+                  <div className="scene-details"><strong>{item.nom}</strong>
+                    <span>{item.condition === "luminosite_inferieure" ? `Luminosité sous ${item.seuil}%` : item.condition === "presence_detectee" ? "Présence détectée" : `Absence de ${item.duree_absence} min`} · {capteurs.find((capteur) => capteur.id === item.capteur_id)?.nom ?? item.capteur_id} · {item.piece || "Toutes les pièces"}</span>
+                  </div>
+                  <button type="button" className={item.active ? "" : "scene-delete"} onClick={() => void basculerConditionnelle(item)}>{item.active ? "Activée" : "Désactivée"}</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerConditionnelle(item)}>Supprimer</button>
+                </article>
+              ))}
+              {conditions.length === 0 && <p className="metric-detail">Aucune règle conditionnelle.</p>}
             </div>
           </section>
 
