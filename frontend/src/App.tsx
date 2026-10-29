@@ -1288,7 +1288,8 @@ function App() {
             </p>
           )}
 
-          <form className="domotic-form" onSubmit={ajouterAppareil}>
+          {utilisateurConnecte.role === "admin" && (
+            <form className="domotic-form" onSubmit={ajouterAppareil}>
               <h3>Ajouter un appareil</h3>
 
               <label htmlFor="nom-appareil">Nom de l'appareil</label>
@@ -1331,6 +1332,7 @@ function App() {
                 <p role="status">{messageDomotique}</p>
               )}
             </form>
+          )}
 
           <div className="domotics-grid">
             {appareils.map((appareil) => (
@@ -1381,16 +1383,18 @@ function App() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                className="domotic-delete-button"
+              {utilisateurConnecte.role === "admin" && (
+                <button
+                  type="button"
+                  className="domotic-delete-button"
                 disabled={appareilsEnCours.includes(appareil.id)}
                 onClick={() => void supprimerAppareil(appareil)}
               >
                 {appareilsEnCours.includes(appareil.id)
                   ? "Opération en cours..."
                   : "Supprimer"}
-              </button>
+                </button>
+              )}
             </article>
 
             ))}
