@@ -63,3 +63,20 @@ def test_modes_rgb_disponibles():
         "spectrum_cycle",
         "spectrum_cycle_breathing",
     }
+
+
+
+def test_mutations_domotique_et_rgb_refusent_les_requetes_sans_authentification():
+    reponse_domotique = client.post(
+        "/api/domotique/appareils",
+        json={
+            "id": "test-non-authentifie",
+            "nom": "Appareil test",
+            "piece": "Test",
+            "type": "lumiere",
+        },
+    )
+    reponse_rgb = client.post("/api/rgb/mode/rainbow")
+
+    assert reponse_domotique.status_code == 401
+    assert reponse_rgb.status_code == 401
