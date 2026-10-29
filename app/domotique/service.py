@@ -128,11 +128,11 @@ class AppareilService:
         return self.presenter(resultat)
 
 
-    def appliquer_scene(self, scene_id: str) -> list[dict]:
+    def appliquer_scene(self, scene_id: str, piece: str | None = None) -> list[dict]:
         scene = self.repository.obtenir_scene(scene_id)
         if scene is None:
             raise AppareilIntrouvable
-        lumieres = self.repository.lister(type_appareil="lumiere")
+        lumieres = self.repository.lister(piece=piece, type_appareil="lumiere")
         if not lumieres:
             raise CommandeNonSupportee
         appareils_mis_a_jour = []
