@@ -163,22 +163,17 @@ class MoteurAutomatisations:
     def executer_cycle(self, maintenant: datetime | None = None) -> None:
         maintenant = maintenant or datetime.now()
         for item in self.repository.automations_a_lancer(maintenant):
-            try:
-                self.service_domotique.appliquer_scene(item["scene_id"], piece=item.get("piece"))
-                if item.get("extinction_minutes"):
-                    self.repository.programmer_extinction(
-                        item.get("piece"), item["extinction_minutes"]
-                    )
-            finally:
-                # Évite de relancer en boucle une règle défaillante à chaque cycle.
-                self.repository.marquer_execution(item["id"], maintenant.date().isoformat())
+            self.service_domotique.appliquer_scene(item["scene_id"], piece=item.get("piece"))
+            if item.get("extinction_minutes"):
+                self.repository.programmer_extinction(
+                    item.get("piece"), item["extinction_minutes"]
+                )
+            self.repository.marquer_execution(item["id"], maintenant.date().isoformat())
 
         for extinction in self.repository.extinctions_a_traiter(maintenant):
-            try:
-                appareils = self.service_domotique.lister(
-                    piece=extinction["piece"], type_appareil="lumiere"
-                )
-                for appareil in appareils:
-                    self.service_domotique.commander(appareil["id"], False)
-            finally:
-                self.repository.marquer_extinction(extinction["id"])
+            appareils = self.service_domotique.lister(
+                piece=extinction["piece"], type_appareil="lumiere"
+            )
+            for appareil in appareils:
+                self.service_domotique.commander(appareil["id"], False)
+            self.repository.marquer_extinction(extinction["id"])
