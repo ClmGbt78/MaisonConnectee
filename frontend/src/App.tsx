@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { apiFetch } from "./api";
+import { apiFetch, setAccessToken } from "./api";
 import {
   ResponsiveContainer,
   LineChart,
@@ -584,6 +584,7 @@ function App() {
           );
         }
 
+        setAccessToken(data.access_token);
         setUtilisateurConnecte(data.utilisateur);
         setMotDePasseConnexion("");
       } catch (erreur) {
@@ -595,6 +596,13 @@ function App() {
       } finally {
         setConnexionEnCours(false);
       }
+  }
+
+  function deconnecter() {
+    setAccessToken(null);
+    setUtilisateurConnecte(null);
+    setEmailConnexion("");
+    setMotDePasseConnexion("");
   }
 
   return (
@@ -721,9 +729,12 @@ function App() {
 
   <div className="profile-avatar">MC</div>
   <div>
-    <strong>Mon espace</strong>
-    <span>Administrateur</span>
+    <strong>{utilisateurConnecte.nom}</strong>
+    <span>{utilisateurConnecte.email}</span>
   </div>
+  <button type="button" className="logout-button" onClick={deconnecter}>
+    Se déconnecter
+  </button>
   </div>
 
         </header>
