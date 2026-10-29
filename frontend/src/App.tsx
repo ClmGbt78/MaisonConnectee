@@ -1415,9 +1415,14 @@ function App() {
                         element.id === appareil.id ? { ...element, luminosite } : element
                       ));
                     }}
-                    onMouseUp={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
-                    onTouchEnd={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
-                    onKeyUp={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
+                    onPointerUp={(event) =>
+                      void reglerLuminosite(appareil, Number(event.currentTarget.value))
+                    }
+                    onKeyUp={(event) => {
+                      if (event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") {
+                        void reglerLuminosite(appareil, Number(event.currentTarget.value));
+                      }
+                    }}
                   />
                 </div>
               )}
