@@ -1,0 +1,23 @@
+### Environnement Python
+#.venv/
+#venv/
+
+# Fichiers Python temporaires
+#__pycache__/
+#*.py[cod]
+
+# Variables et secrets
+.env
+.env.*
+
+# Configuration locale
+#.vscode/
+
+# Outils de développement
+#.pytest_cache/
+#.mypy_cache/
+#.ruff_cache/
+
+# Système
+#.DS_Store
+#Thumbs.db
