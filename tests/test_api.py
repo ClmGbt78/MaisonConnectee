@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 # Secret factice réservé aux tests : évite d'exiger un fichier .env local
 # lors de l'exécution de la suite sur une machine propre.
 os.environ.setdefault("JWT_SECRET", "test-only-secret-not-for-production")
@@ -7,10 +9,24 @@ os.environ.setdefault("JWT_SECRET", "test-only-secret-not-for-production")
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.core.security import get_current_user
 from app.api import comptes as comptes_routes
 from app.core.config import Settings
 
 client = TestClient(app)
+
+
+@pytest.fixture
+def client_authentifie():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": 1,
+        "nom": "Compte test",
+        "email": "compte-test@example.com",
+        "role": "admin",
+        "actif": 1,
+    }
+    yield client
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 def test_accueil():
@@ -21,8 +37,8 @@ def test_accueil():
     assert response.json()["etat"] == "en fonctionnement"
 
 
-def test_etat_systeme():
-    response = client.get("/api/systeme")
+def test_etat_systeme(client_authentifie):
+    response = client_authentifie.get("/api/systeme")
 
     assert response.status_code == 200
 
@@ -43,8 +59,8 @@ def test_route_indicateurs_api_enregistree_une_seule_fois():
     assert "get" in chemins["/api/systeme/indicateurs"]
 
 
-def test_indicateurs_systeme():
-    response = client.get("/api/systeme/indicateurs")
+def test_indicateurs_systeme(client_authentifie):
+    response = client_authentifie.get("/api/systeme/indicateurs")
 
     assert response.status_code == 200
     data = response.json()
@@ -103,3 +119,18 @@ def test_inscription_publique_desactivee_par_defaut(monkeypatch):
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Les inscriptions publiques sont désactivées."
+
+
+
+def test_lectures_privees_refusees_sans_authentification():
+    chemins_prives = [
+        "/api/systeme",
+        "/api/systeme/indicateurs",
+        "/api/systeme/historique",
+        "/api/domotique/appareils",
+        "/api/domotique/appareils/lampe-salon",
+    ]
+
+    for chemin in chemins_prives:
+        response = client.get(chemin)
+        assert response.status_code == 401, chemin
