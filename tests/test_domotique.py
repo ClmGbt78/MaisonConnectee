@@ -120,6 +120,7 @@ def test_migration_luminosite_preserve_etat_existant(tmp_path):
     assert lampe is not None
     assert lampe["allume"] is True
     assert lampe["luminosite"] == 100
+    assert lampe["temperature_couleur"] == 4000
     assert repository.obtenir("lampe-salon") is not None
 
 
