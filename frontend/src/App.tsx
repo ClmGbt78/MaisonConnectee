@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { apiFetch } from "./api";
 import {
   ResponsiveContainer,
   LineChart,
@@ -113,8 +114,8 @@ function App() {
     setErreurRGB("");
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/rgb/mode/${mode}`,
+      const response = await apiFetch(
+        `/api/rgb/mode/${mode}`,
         { method: "POST" }
       );
 
@@ -141,8 +142,8 @@ function App() {
 
     const verifierConnexionRGB = async () => {
       try {
-        const response = await fetch(
-         "http://127.0.0.1:8000/api/rgb/modes"
+        const response = await apiFetch(
+         "/api/rgb/modes"
         );
 
         if (!response.ok) {
@@ -172,8 +173,8 @@ function App() {
 
     async function loadSystemStatus() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme"
+        const response = await apiFetch(
+          "/api/systeme"
         );
 
         if (!response.ok) {
@@ -233,8 +234,8 @@ function App() {
 
     async function loadMetrics() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme/indicateurs"
+        const response = await apiFetch(
+          "/api/systeme/indicateurs"
         );
 
         if (!response.ok) {
@@ -271,8 +272,8 @@ function App() {
 
     async function chargerHistorique() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme/historique"
+        const response = await apiFetch(
+          "/api/systeme/historique"
         );
 
         if (!response.ok) {
@@ -315,8 +316,8 @@ function App() {
 
   async function chargerAppareils() {
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/domotique/appareils"
+      const response = await apiFetch(
+        "/api/domotique/appareils"
       );
 
       if (!response.ok) {
@@ -351,8 +352,8 @@ function App() {
     setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/domotique/appareils/${appareil.id}`,
+      const response = await apiFetch(
+        `/api/domotique/appareils/${appareil.id}`,
         {
           method: "PATCH",
           headers: {
@@ -415,8 +416,8 @@ function App() {
     setMessageDomotique("");
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/domotique/appareils",
+      const response = await apiFetch(
+        "/api/domotique/appareils",
         {
           method: "POST",
           headers: {
@@ -467,8 +468,8 @@ function App() {
     setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/domotique/appareils/${encodeURIComponent(appareil.id)}`,
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}`,
         {
           method: "DELETE",
         }
@@ -544,8 +545,8 @@ function App() {
       setConnexionEnCours(true);
 
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/comptes/connexion",
+        const response = await apiFetch(
+          "/api/comptes/connexion",
           {
             method: "POST",
             headers: {
