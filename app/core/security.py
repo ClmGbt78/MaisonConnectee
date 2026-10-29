@@ -71,3 +71,15 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
         )
 
     return dict(utilisateur)
+
+
+def require_admin(utilisateur: dict = None):
+    """Refuse les opérations d'administration aux comptes non administrateurs."""
+    from fastapi import Depends
+
+    # Supporte Depends explicitement sans dupliquer la validation du JWT.
+    if utilisateur is None:
+        raise HTTPException(status_code=403, detail="Droits administrateur requis")
+    if str(utilisateur.get("role", "")).lower() != "admin":
+        raise HTTPException(status_code=403, detail="Droits administrateur requis")
+    return utilisateur
