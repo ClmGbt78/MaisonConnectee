@@ -1,12 +1,10 @@
 import sqlite3
-import os
 from datetime import datetime, timedelta, timezone
 import jwt
 
-from dotenv import load_dotenv
-from fastapi import Depends, Header
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
+from app.core.security import JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET
 from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 
@@ -14,14 +12,6 @@ router = APIRouter(prefix="/comptes", tags=["Comptes"])
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = BASE_DIR / "comptes.db"
-load_dotenv(BASE_DIR / ".env")
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-
-if not JWT_SECRET:
-    raise RuntimeError(
-        "JWT_SECRET est absent du fichier .env"
-    )
 
 password_hash = PasswordHash.recommended()
 
@@ -128,6 +118,8 @@ def connecter_utilisateur(donnees: Connexion):
             "role": utilisateur["role"],
             "iat": maintenant,
             "exp": expiration,
+            "iss": JWT_ISSUER,
+            "aud": JWT_AUDIENCE,
         },
         JWT_SECRET,
         algorithm="HS256",
