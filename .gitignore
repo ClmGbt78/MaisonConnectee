@@ -7,6 +7,7 @@ __pycache__/
 # Variables et secrets
 .env
 .env.*
+!.env.example
 
 # Configuration locale
 .vscode/
