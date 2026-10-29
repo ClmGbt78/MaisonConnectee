@@ -38,6 +38,7 @@ type Appareil = {
   capacites?: string[];
   luminosite?: number | null;
   temperature_couleur?: number | null;
+  couleur?: string | null;
 };
 
 type HistoriqueIndicateur = {
@@ -462,6 +463,35 @@ function App() {
       setErreurDomotique(false);
     } catch (erreur) {
       setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la température de couleur.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
+    }
+  }
+
+
+  async function reglerCouleur(appareil: Appareil, couleur: string) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/couleur`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ couleur }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la couleur.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la couleur.");
       setErreurDomotique(true);
       void chargerAppareils();
     } finally {
@@ -1486,6 +1516,26 @@ function App() {
                   <div className="domotic-temperature-labels" aria-hidden="true">
                     <span>Chaud</span><span>Froid</span>
                   </div>
+                </div>
+
+                <div className="domotic-color">
+                  <label htmlFor={`couleur-${appareil.id}`}>
+                    Couleur RGB : {appareil.couleur ?? "#FFFFFF"}
+                  </label>
+                  <input
+                    id={`couleur-${appareil.id}`}
+                    type="color"
+                    value={appareil.couleur ?? "#FFFFFF"}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Couleur RGB : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const couleur = event.target.value.toUpperCase();
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, couleur } : element
+                      ));
+                      void reglerCouleur(appareil, couleur);
+                    }}
+                  />
                 </div>
                 </>
               )}
