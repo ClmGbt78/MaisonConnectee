@@ -169,6 +169,7 @@ function App() {
 
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let active = true;
 
     async function loadSystemStatus() {
@@ -204,7 +205,7 @@ function App() {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState(false);
@@ -244,6 +245,7 @@ function App() {
     }));
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let active = true;
 
     async function loadMetrics() {
@@ -279,9 +281,10 @@ function App() {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let actif = true;
 
     async function chargerHistorique() {
@@ -317,7 +320,7 @@ function App() {
       actif = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [erreurDomotique, setErreurDomotique] = useState(false);
@@ -347,6 +350,7 @@ function App() {
   }
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     const chargementInitial = window.setTimeout(() => {
       void chargerAppareils();
     }, 0);
@@ -359,7 +363,7 @@ function App() {
       window.clearTimeout(chargementInitial);
       window.clearInterval(intervalle);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   async function basculerAppareil(appareil: Appareil) {
     if (appareilsEnCours.includes(appareil.id)) {
