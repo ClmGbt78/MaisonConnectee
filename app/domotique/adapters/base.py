@@ -9,3 +9,7 @@ class AdaptateurAppareil(Protocol):
     def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int:
         """Applique une luminosité (0-100) et retourne la valeur confirmée."""
         ...
+
+    def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int:
+        """Applique une température de couleur en kelvins (2700-6500)."""
+        ...
