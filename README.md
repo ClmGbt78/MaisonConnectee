@@ -69,3 +69,16 @@ Les tests unitaires du dépôt et du service domotique utilisent une base SQLite
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+
+## Scènes lumineuses
+
+Les scènes permettent d'enregistrer des ambiances nommées et de les appliquer à toutes les lumières compatibles. Chaque scène contient une luminosité (0–100), une température de couleur (2700–6500 K) et une couleur RGB au format `#RRGGBB`.
+
+Routes authentifiées :
+- `GET /api/domotique/scenes` : lister les scènes.
+- `POST /api/domotique/scenes` : créer une scène avec `nom`, `luminosite`, `temperature_couleur` et `couleur`.
+- `DELETE /api/domotique/scenes/{scene_id}` : supprimer une scène.
+- `POST /api/domotique/scenes/{scene_id}/appliquer` : appliquer les trois réglages à chaque lumière.
+
+Les scènes sont enregistrées dans une table SQLite dédiée `scenes_lumineuses`. Leur création ou suppression ne modifie pas les enregistrements des appareils. L'application d'une scène pilote les lumières l'une après l'autre ; si un pilote échoue, l'API signale une erreur et certains réglages déjà appliqués peuvent nécessiter une vérification. L'adaptateur actuel est simulé et ne commande aucun matériel réel.

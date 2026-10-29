@@ -41,6 +41,14 @@ type Appareil = {
   couleur?: string | null;
 };
 
+type SceneLumineuse = {
+  id: string;
+  nom: string;
+  luminosite: number;
+  temperature_couleur: number;
+  couleur: string;
+};
+
 type HistoriqueIndicateur = {
   heure_utc: string;
   cpu_pct: number;
@@ -334,6 +342,12 @@ function App() {
   const [typeNouvelAppareil, setTypeNouvelAppareil] = useState("lumiere");
   const [ajoutEnCours, setAjoutEnCours] = useState(false);
   const [messageDomotique, setMessageDomotique] = useState("");
+  const [scenes, setScenes] = useState<SceneLumineuse[]>([]);
+  const [nomScene, setNomScene] = useState("");
+  const [luminositeScene, setLuminositeScene] = useState(70);
+  const [temperatureScene, setTemperatureScene] = useState(3000);
+  const [couleurScene, setCouleurScene] = useState("#FFB36B");
+  const [sceneEnCours, setSceneEnCours] = useState(false);
 
   async function chargerAppareils() {
     try {
@@ -368,6 +382,70 @@ function App() {
       window.clearInterval(intervalle);
     };
   }, [utilisateurConnecte]);
+
+
+  async function chargerScenes() {
+    try {
+      const response = await apiFetch("/api/domotique/scenes");
+      if (!response.ok) throw new Error("Impossible de charger les scènes");
+      setScenes(await response.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les scènes lumineuses.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    void chargerScenes();
+  }, [utilisateurConnecte]);
+
+  async function creerScene(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSceneEnCours(true);
+    setMessageDomotique("");
+    try {
+      const response = await apiFetch("/api/domotique/scenes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: nomScene.trim(), luminosite: luminositeScene, temperature_couleur: temperatureScene, couleur: couleurScene }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible d'enregistrer la scène.");
+      setScenes((anciennes) => [...anciennes.filter((scene) => scene.id !== data.id), data]);
+      setNomScene("");
+      setMessageDomotique("Scène lumineuse enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur lors de l'enregistrement.");
+    } finally { setSceneEnCours(false); }
+  }
+
+  async function appliquerScene(scene: SceneLumineuse) {
+    setSceneEnCours(true);
+    setMessageDomotique("");
+    try {
+      const response = await apiFetch(`/api/domotique/scenes/${encodeURIComponent(scene.id)}/appliquer`, { method: "POST" });
+      const data: Appareil[] = await response.json();
+      if (!response.ok) throw new Error((data as unknown as {detail?: string}).detail || "Impossible d'appliquer la scène.");
+      setAppareils((anciennes) => anciennes.map((appareil) => data.find((maj) => maj.id === appareil.id) ?? appareil));
+      setMessageDomotique(`Ambiance « ${scene.nom} » appliquée.`);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur lors de l'application de la scène.");
+      void chargerAppareils();
+    } finally { setSceneEnCours(false); }
+  }
+
+  async function supprimerScene(scene: SceneLumineuse) {
+    if (!window.confirm(`Supprimer la scène « ${scene.nom} » ?`)) return;
+    setSceneEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/scenes/${encodeURIComponent(scene.id)}`, { method: "DELETE" });
+      if (!response.ok) { const data = await response.json(); throw new Error(data.detail || "Impossible de supprimer la scène."); }
+      setScenes((anciennes) => anciennes.filter((element) => element.id !== scene.id));
+      setMessageDomotique("Scène supprimée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally { setSceneEnCours(false); }
+  }
 
   async function basculerAppareil(appareil: Appareil) {
     if (appareilsEnCours.includes(appareil.id)) {
@@ -1376,6 +1454,37 @@ function App() {
               Impossible de communiquer avec la domotique. Vérifiez que l’API fonctionne.
             </p>
           )}
+
+
+          <section className="scenes-panel">
+            <div className="section-heading">
+              <div><h2>Scènes lumineuses</h2><p>Enregistre et applique tes ambiances à toutes les lumières</p></div>
+              <span className="module-count">{scenes.length} SCÈNES</span>
+            </div>
+            <form className="scene-form" onSubmit={creerScene}>
+              <label htmlFor="nom-scene">Nom de l'ambiance</label>
+              <input id="nom-scene" value={nomScene} onChange={(event) => setNomScene(event.target.value)} placeholder="Ex. : Soirée détente" required maxLength={80} />
+              <label htmlFor="luminosite-scene">Luminosité : {luminositeScene} %</label>
+              <input id="luminosite-scene" type="range" min="0" max="100" value={luminositeScene} onChange={(event) => setLuminositeScene(Number(event.target.value))} />
+              <label htmlFor="temperature-scene">Température : {temperatureScene} K</label>
+              <input id="temperature-scene" type="range" min="2700" max="6500" step="100" value={temperatureScene} onChange={(event) => setTemperatureScene(Number(event.target.value))} />
+              <label htmlFor="couleur-scene">Couleur RGB</label>
+              <input id="couleur-scene" type="color" value={couleurScene} onChange={(event) => setCouleurScene(event.target.value.toUpperCase())} />
+              <button type="submit" disabled={sceneEnCours || !nomScene.trim()}>{sceneEnCours ? "En cours…" : "Enregistrer la scène"}</button>
+            </form>
+            <div className="scene-list">
+              {scenes.map((scene) => (
+                <article className="scene-card" key={scene.id}>
+                  <span className="scene-swatch" style={{ backgroundColor: scene.couleur }} />
+                  <div className="scene-details"><strong>{scene.nom}</strong><span>{scene.luminosite} % · {scene.temperature_couleur} K · {scene.couleur}</span></div>
+                  <button type="button" onClick={() => void appliquerScene(scene)} disabled={sceneEnCours}>Appliquer</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerScene(scene)} disabled={sceneEnCours} aria-label={`Supprimer ${scene.nom}`}>Supprimer</button>
+                </article>
+              ))}
+              {scenes.length === 0 && <p className="metric-detail">Aucune scène enregistrée pour le moment.</p>}
+            </div>
+            {messageDomotique && <p role="status" className="scene-message">{messageDomotique}</p>}
+          </section>
 
           {utilisateurConnecte.role === "admin" && (
             <form className="domotic-form" onSubmit={ajouterAppareil}>

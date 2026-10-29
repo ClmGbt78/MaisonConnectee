@@ -126,3 +126,18 @@ class AppareilService:
         if resultat is None:
             raise AppareilIntrouvable
         return self.presenter(resultat)
+
+
+    def appliquer_scene(self, scene_id: str) -> list[dict]:
+        scene = self.repository.obtenir_scene(scene_id)
+        if scene is None:
+            raise AppareilIntrouvable
+        lumieres = self.repository.lister(type_appareil="lumiere")
+        if not lumieres:
+            raise CommandeNonSupportee
+        appareils_mis_a_jour = []
+        for lumiere in lumieres:
+            self.regler_luminosite(lumiere["id"], scene["luminosite"])
+            self.regler_temperature_couleur(lumiere["id"], scene["temperature_couleur"])
+            appareils_mis_a_jour.append(self.regler_couleur(lumiere["id"], scene["couleur"]))
+        return appareils_mis_a_jour

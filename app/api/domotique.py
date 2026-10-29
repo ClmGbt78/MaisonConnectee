@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+import re
+import sqlite3
 from pydantic import BaseModel, Field
 
 from app.core.security import get_current_user, require_admin
@@ -33,6 +35,13 @@ class ReglageTemperatureCouleur(BaseModel):
 
 
 class ReglageCouleur(BaseModel):
+    couleur: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class SceneLumineuse(BaseModel):
+    nom: str = Field(min_length=1, max_length=80)
+    luminosite: int = Field(ge=0, le=100)
+    temperature_couleur: int = Field(ge=2700, le=6500)
     couleur: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
@@ -199,3 +208,57 @@ def regler_couleur(
             status_code=503,
             detail="Le pilote domotique n’a pas pu appliquer la couleur",
         )
+
+
+@router.get("/scenes")
+def lister_scenes(utilisateur_connecte: dict = Depends(get_current_user)):
+    return repository.lister_scenes()
+
+
+@router.post("/scenes", status_code=201)
+def creer_scene(
+    scene: SceneLumineuse,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    nom = scene.nom.strip()
+    if not nom:
+        raise HTTPException(status_code=422, detail="Le nom de la scène est obligatoire")
+    identifiant = re.sub(r"[^a-z0-9]+", "-", nom.lower()).strip("-")
+    if not identifiant:
+        raise HTTPException(status_code=422, detail="Nom de scène invalide")
+    donnees = {
+        "id": identifiant,
+        "nom": nom,
+        "luminosite": scene.luminosite,
+        "temperature_couleur": scene.temperature_couleur,
+        "couleur": scene.couleur.upper(),
+    }
+    try:
+        return repository.ajouter_scene(donnees)
+    except sqlite3.IntegrityError as erreur:
+        raise HTTPException(status_code=409, detail="Une scène portant ce nom existe déjà") from erreur
+
+
+@router.delete("/scenes/{scene_id}", status_code=204)
+def supprimer_scene(
+    scene_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    if not repository.supprimer_scene(scene_id):
+        raise HTTPException(status_code=404, detail="Scène lumineuse introuvable")
+    return Response(status_code=204)
+
+
+@router.post("/scenes/{scene_id}/appliquer")
+def appliquer_scene(
+    scene_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.appliquer_scene(scene_id)
+    except AppareilIntrouvable:
+        raise HTTPException(status_code=404, detail="Scène lumineuse introuvable")
+    except CommandeNonSupportee:
+        raise HTTPException(status_code=409, detail="Aucune lumière n’est disponible")
+    except ErreurAdaptateur:
+        raise HTTPException(status_code=503, detail="Le pilote n’a pas pu appliquer complètement la scène")

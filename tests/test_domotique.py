@@ -246,3 +246,61 @@ def test_migration_couleur_rgb_preserve_les_reglages_existants(tmp_path):
     repository.initialiser()
     assert repository.obtenir("lampe-salon")["couleur"] == "#123456"
     assert repository.obtenir("ventilateur")["couleur"] is None
+
+
+def test_repository_persiste_et_supprime_une_scene(service):
+    scene = {
+        "id": "soiree-detente",
+        "nom": "Soirée détente",
+        "luminosite": 35,
+        "temperature_couleur": 2700,
+        "couleur": "#FFAA66",
+    }
+    service.repository.ajouter_scene(scene)
+    assert service.repository.lister_scenes() == [scene]
+    assert service.repository.obtenir_scene("soiree-detente") == scene
+    assert service.repository.supprimer_scene("soiree-detente") is True
+    assert service.repository.obtenir_scene("soiree-detente") is None
+
+
+def test_appliquer_scene_met_a_jour_toutes_les_lumieres(service):
+    service.ajouter({
+        "id": "lampe-bureau",
+        "nom": "Lampe bureau",
+        "piece": "Bureau",
+        "type": "lumiere",
+    })
+    service.repository.ajouter_scene({
+        "id": "lecture",
+        "nom": "Lecture",
+        "luminosite": 65,
+        "temperature_couleur": 4000,
+        "couleur": "#FFF0CC",
+    })
+
+    appareils = service.appliquer_scene("lecture")
+
+    assert len(appareils) == 2
+    for appareil in appareils:
+        assert appareil["luminosite"] == 65
+        assert appareil["temperature_couleur"] == 4000
+        assert appareil["couleur"] == "#FFF0CC"
+
+
+def test_appliquer_scene_inexistante_est_refusee(service):
+    with pytest.raises(AppareilIntrouvable):
+        service.appliquer_scene("scene-inexistante")
+
+
+def test_appliquer_scene_sans_lumiere_est_refusee(service):
+    from app.domotique.service import CommandeNonSupportee
+    service.repository.supprimer("lampe-salon")
+    service.repository.ajouter_scene({
+        "id": "nuit",
+        "nom": "Nuit",
+        "luminosite": 5,
+        "temperature_couleur": 2700,
+        "couleur": "#110022",
+    })
+    with pytest.raises(CommandeNonSupportee):
+        service.appliquer_scene("nuit")
