@@ -121,3 +121,39 @@ def test_migration_luminosite_preserve_etat_existant(tmp_path):
     assert lampe["allume"] is True
     assert lampe["luminosite"] == 100
     assert repository.obtenir("lampe-salon") is not None
+
+
+def test_echec_adaptateur_ne_modifie_pas_luminosite(service):
+    from app.domotique.service import ErreurAdaptateur
+
+    class AdaptateurEnPanne:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool:
+            return allume
+
+        def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int:
+            raise RuntimeError("pilote indisponible")
+
+    service.adaptateur = AdaptateurEnPanne()
+
+    with pytest.raises(ErreurAdaptateur):
+        service.regler_luminosite("lampe-salon", 25)
+
+    assert service.obtenir("lampe-salon")["luminosite"] == 100
+
+
+def test_valeur_luminosite_invalide_du_pilote_est_refusee(service):
+    from app.domotique.service import ErreurAdaptateur
+
+    class AdaptateurInvalide:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool:
+            return allume
+
+        def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int:
+            return 150
+
+    service.adaptateur = AdaptateurInvalide()
+
+    with pytest.raises(ErreurAdaptateur):
+        service.regler_luminosite("lampe-salon", 25)
+
+    assert service.obtenir("lampe-salon")["luminosite"] == 100
