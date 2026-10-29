@@ -428,7 +428,8 @@ function App() {
 
   useEffect(() => {
     if (!utilisateurConnecte) return;
-    void chargerScenes();
+    const timeout = window.setTimeout(() => void chargerScenes(), 0);
+    return () => window.clearTimeout(timeout);
   }, [utilisateurConnecte]);
 
   async function creerScene(event: React.FormEvent<HTMLFormElement>) {
@@ -491,7 +492,8 @@ function App() {
 
   useEffect(() => {
     if (!utilisateurConnecte) return;
-    void chargerAutomatisations();
+    const timeout = window.setTimeout(() => void chargerAutomatisations(), 0);
+    return () => window.clearTimeout(timeout);
   }, [utilisateurConnecte]);
 
   async function creerAutomatisation(event: React.FormEvent<HTMLFormElement>) {
@@ -563,9 +565,12 @@ function App() {
 
   useEffect(() => {
     if (!utilisateurConnecte) return;
-    void chargerCapteursEtConditions();
+    const timeout = window.setTimeout(() => void chargerCapteursEtConditions(), 0);
     const interval = window.setInterval(() => void chargerCapteursEtConditions(), 5000);
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
   }, [utilisateurConnecte]);
 
   async function simulerCapteur(capteur: Capteur, type_mesure: "luminosite" | "presence", valeur: number) {
