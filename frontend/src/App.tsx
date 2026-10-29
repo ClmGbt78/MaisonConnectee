@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { apiFetch, setAccessToken } from "./api";
 import {
   ResponsiveContainer,
   LineChart,
@@ -113,8 +114,8 @@ function App() {
     setErreurRGB("");
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/rgb/mode/${mode}`,
+      const response = await apiFetch(
+        `/api/rgb/mode/${mode}`,
         { method: "POST" }
       );
 
@@ -141,8 +142,8 @@ function App() {
 
     const verifierConnexionRGB = async () => {
       try {
-        const response = await fetch(
-         "http://127.0.0.1:8000/api/rgb/modes"
+        const response = await apiFetch(
+         "/api/rgb/modes"
         );
 
         if (!response.ok) {
@@ -168,12 +169,13 @@ function App() {
 
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let active = true;
 
     async function loadSystemStatus() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme"
+        const response = await apiFetch(
+          "/api/systeme"
         );
 
         if (!response.ok) {
@@ -203,17 +205,31 @@ function App() {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState(false);
   const [historique, setHistorique] = useState<HistoriqueIndicateur[]>([]);
   const [erreurHistorique, setErreurHistorique] = useState(false);
-  const maintenant = Date.now();
+  const [maintenant, setMaintenant] = useState<number | null>(null);
   const [periodeHistorique, setPeriodeHistorique] =
     useState<15 | 60 | 1440>(60);
+
+  useEffect(() => {
+    const intervalleHorloge = window.setInterval(() => {
+      setMaintenant(Date.now());
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalleHorloge);
+    };
+  }, []);
   const historiqueGraphique = historique
     .filter((mesure) => {
+      if (maintenant === null) {
+        return false;
+      }
+
       const heureMesure = new Date(mesure.heure_utc).getTime();
       const dureeMs = periodeHistorique * 60 * 1000;
 
@@ -229,12 +245,13 @@ function App() {
     }));
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let active = true;
 
     async function loadMetrics() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme/indicateurs"
+        const response = await apiFetch(
+          "/api/systeme/indicateurs"
         );
 
         if (!response.ok) {
@@ -264,15 +281,16 @@ function App() {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   useEffect(() => {
+    if (!utilisateurConnecte) return;
     let actif = true;
 
     async function chargerHistorique() {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/systeme/historique"
+        const response = await apiFetch(
+          "/api/systeme/historique"
         );
 
         if (!response.ok) {
@@ -302,7 +320,7 @@ function App() {
       actif = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [erreurDomotique, setErreurDomotique] = useState(false);
@@ -315,8 +333,8 @@ function App() {
 
   async function chargerAppareils() {
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/domotique/appareils"
+      const response = await apiFetch(
+        "/api/domotique/appareils"
       );
 
       if (!response.ok) {
@@ -332,16 +350,20 @@ function App() {
   }
 
   useEffect(() => {
-    void chargerAppareils();
+    if (!utilisateurConnecte) return;
+    const chargementInitial = window.setTimeout(() => {
+      void chargerAppareils();
+    }, 0);
 
     const intervalle = window.setInterval(() => {
       void chargerAppareils();
     }, 3000);
 
     return () => {
+      window.clearTimeout(chargementInitial);
       window.clearInterval(intervalle);
     };
-  }, []);
+  }, [utilisateurConnecte]);
 
   async function basculerAppareil(appareil: Appareil) {
     if (appareilsEnCours.includes(appareil.id)) {
@@ -351,8 +373,8 @@ function App() {
     setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/domotique/appareils/${appareil.id}`,
+      const response = await apiFetch(
+        `/api/domotique/appareils/${appareil.id}`,
         {
           method: "PATCH",
           headers: {
@@ -415,8 +437,8 @@ function App() {
     setMessageDomotique("");
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/domotique/appareils",
+      const response = await apiFetch(
+        "/api/domotique/appareils",
         {
           method: "POST",
           headers: {
@@ -467,8 +489,8 @@ function App() {
     setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/domotique/appareils/${encodeURIComponent(appareil.id)}`,
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}`,
         {
           method: "DELETE",
         }
@@ -544,8 +566,8 @@ function App() {
       setConnexionEnCours(true);
 
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/comptes/connexion",
+        const response = await apiFetch(
+          "/api/comptes/connexion",
           {
             method: "POST",
             headers: {
@@ -566,6 +588,7 @@ function App() {
           );
         }
 
+        setAccessToken(data.access_token);
         setUtilisateurConnecte(data.utilisateur);
         setMotDePasseConnexion("");
       } catch (erreur) {
@@ -577,6 +600,13 @@ function App() {
       } finally {
         setConnexionEnCours(false);
       }
+  }
+
+  function deconnecter() {
+    setAccessToken(null);
+    setUtilisateurConnecte(null);
+    setEmailConnexion("");
+    setMotDePasseConnexion("");
   }
 
   return (
@@ -703,9 +733,12 @@ function App() {
 
   <div className="profile-avatar">MC</div>
   <div>
-    <strong>Mon espace</strong>
-    <span>Administrateur</span>
+    <strong>{utilisateurConnecte.nom}</strong>
+    <span>{utilisateurConnecte.email}</span>
   </div>
+  <button type="button" className="logout-button" onClick={deconnecter}>
+    Se déconnecter
+  </button>
   </div>
 
         </header>
@@ -1255,7 +1288,8 @@ function App() {
             </p>
           )}
 
-          <form className="domotic-form" onSubmit={ajouterAppareil}>
+          {utilisateurConnecte.role === "admin" && (
+            <form className="domotic-form" onSubmit={ajouterAppareil}>
               <h3>Ajouter un appareil</h3>
 
               <label htmlFor="nom-appareil">Nom de l'appareil</label>
@@ -1298,6 +1332,7 @@ function App() {
                 <p role="status">{messageDomotique}</p>
               )}
             </form>
+          )}
 
           <div className="domotics-grid">
             {appareils.map((appareil) => (
@@ -1348,16 +1383,18 @@ function App() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                className="domotic-delete-button"
+              {utilisateurConnecte.role === "admin" && (
+                <button
+                  type="button"
+                  className="domotic-delete-button"
                 disabled={appareilsEnCours.includes(appareil.id)}
                 onClick={() => void supprimerAppareil(appareil)}
               >
                 {appareilsEnCours.includes(appareil.id)
                   ? "Opération en cours..."
                   : "Supprimer"}
-              </button>
+                </button>
+              )}
             </article>
 
             ))}

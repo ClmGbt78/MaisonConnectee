@@ -2,7 +2,8 @@ import shutil
 from datetime import datetime, timezone
 
 import psutil
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.core.security import get_current_user
 import sqlite3
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def accueil():
 
 
 @router.get("/systeme")
-def etat_systeme():
+def etat_systeme(utilisateur_connecte: dict = Depends(get_current_user)):
     return {
         "centrale": "PC Windows - développement",
         "heure_utc": datetime.now(timezone.utc).isoformat(),
@@ -48,9 +49,7 @@ def etat_systeme():
 
 
 @router.get("/systeme/indicateurs")
-
-@router.get("/systeme/indicateurs")
-def indicateurs_systeme():
+def indicateurs_systeme(utilisateur_connecte: dict = Depends(get_current_user)):
     memoire = psutil.virtual_memory()
     disque = shutil.disk_usage("C:\\")
 
@@ -88,7 +87,7 @@ def indicateurs_systeme():
     }
 
 @router.get("/systeme/historique")
-def obtenir_historique_systeme():
+def obtenir_historique_systeme(utilisateur_connecte: dict = Depends(get_current_user)):
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
 

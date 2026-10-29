@@ -25,7 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+@app.get("/")
+def accueil():
+    return {
+        "projet": "Maison Connectée",
+        "etat": "en fonctionnement",
+    }
+
+
 app.include_router(router, prefix="/api")
 app.include_router(domotique_router, prefix="/api")
 app.include_router(rgb_router, prefix="/api")

@@ -1,12 +1,14 @@
 import sqlite3
-import os
+import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
-import jwt
-
-from dotenv import load_dotenv
-from fastapi import Depends, Header
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+
+import jwt
+from fastapi import APIRouter, HTTPException, Request
+from app.core.security import JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET
+from app.core.config import get_settings
 from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 
@@ -14,16 +16,51 @@ router = APIRouter(prefix="/comptes", tags=["Comptes"])
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = BASE_DIR / "comptes.db"
-load_dotenv(BASE_DIR / ".env")
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-
-if not JWT_SECRET:
-    raise RuntimeError(
-        "JWT_SECRET est absent du fichier .env"
-    )
 
 password_hash = PasswordHash.recommended()
+HASH_MOT_DE_PASSE_INVALIDE = password_hash.hash("invalid-password-placeholder")
+
+# Limitation en mémoire : convient au mode local mono-processus. Pour plusieurs
+# workers ou plusieurs serveurs, utiliser un stockage partagé (ex. Redis).
+FENETRE_CONNEXION_SECONDES = 15 * 60
+MAX_ECHECS_CONNEXION = 5
+_echecs_connexion: dict[str, deque[float]] = defaultdict(deque)
+_verrou_connexion = threading.Lock()
+
+
+def _nettoyer_echecs(cles: tuple[str, ...], maintenant: float) -> None:
+    for cle in cles:
+        echecs = _echecs_connexion[cle]
+        while echecs and maintenant - echecs[0] >= FENETRE_CONNEXION_SECONDES:
+            echecs.popleft()
+
+
+def _verifier_limite_connexion(email: str, adresse_ip: str) -> None:
+    maintenant = time.monotonic()
+    cles = (f"email:{email}", f"ip:{adresse_ip}")
+    with _verrou_connexion:
+        _nettoyer_echecs(cles, maintenant)
+        if any(len(_echecs_connexion[cle]) >= MAX_ECHECS_CONNEXION for cle in cles):
+            raise HTTPException(
+                status_code=429,
+                detail="Trop de tentatives de connexion. Réessaie dans 15 minutes.",
+                headers={"Retry-After": str(FENETRE_CONNEXION_SECONDES)},
+            )
+
+
+def _enregistrer_echec_connexion(email: str, adresse_ip: str) -> None:
+    maintenant = time.monotonic()
+    with _verrou_connexion:
+        cles = (f"email:{email}", f"ip:{adresse_ip}")
+        _nettoyer_echecs(cles, maintenant)
+        for cle in cles:
+            _echecs_connexion[cle].append(maintenant)
+
+
+def _reinitialiser_echecs_connexion(email: str, adresse_ip: str) -> None:
+    with _verrou_connexion:
+        _echecs_connexion.pop(f"email:{email}", None)
+        _echecs_connexion.pop(f"ip:{adresse_ip}", None)
 
 
 def initialiser_base():
@@ -51,6 +88,7 @@ class Inscription(BaseModel):
     email: EmailStr
     mot_de_passe: str = Field(min_length=12, max_length=128)
 
+
 class Connexion(BaseModel):
     email: EmailStr
     mot_de_passe: str = Field(min_length=1, max_length=128)
@@ -58,6 +96,12 @@ class Connexion(BaseModel):
 
 @router.post("/inscription")
 def inscrire_utilisateur(utilisateur: Inscription):
+    if not get_settings().allow_public_registration:
+        raise HTTPException(
+            status_code=403,
+            detail="Les inscriptions publiques sont désactivées.",
+        )
+
     nom = utilisateur.nom.strip()
     email = str(utilisateur.email).strip().lower()
 
@@ -91,9 +135,12 @@ def inscrire_utilisateur(utilisateur: Inscription):
         "actif": True,
     }
 
+
 @router.post("/connexion")
-def connecter_utilisateur(donnees: Connexion):
+def connecter_utilisateur(donnees: Connexion, request: Request):
     email = str(donnees.email).strip().lower()
+    adresse_ip = request.client.host if request.client else "inconnue"
+    _verifier_limite_connexion(email, adresse_ip)
 
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
@@ -106,19 +153,23 @@ def connecter_utilisateur(donnees: Connexion):
             (email,),
         ).fetchone()
 
-    if (
-        utilisateur is None
-        or not password_hash.verify(
-            donnees.mot_de_passe,
-            utilisateur["mot_de_passe_hash"],
-        )
-        or not utilisateur["actif"]
-    ):
+    mot_de_passe_valide = password_hash.verify(
+        donnees.mot_de_passe,
+        (
+            utilisateur["mot_de_passe_hash"]
+            if utilisateur is not None
+            else HASH_MOT_DE_PASSE_INVALIDE
+        ),
+    )
+
+    if utilisateur is None or not mot_de_passe_valide or not utilisateur["actif"]:
+        _enregistrer_echec_connexion(email, adresse_ip)
         raise HTTPException(
             status_code=401,
             detail="E-mail ou mot de passe incorrect",
         )
 
+    _reinitialiser_echecs_connexion(email, adresse_ip)
     maintenant = datetime.now(timezone.utc)
     expiration = maintenant + timedelta(hours=8)
 
@@ -128,6 +179,8 @@ def connecter_utilisateur(donnees: Connexion):
             "role": utilisateur["role"],
             "iat": maintenant,
             "exp": expiration,
+            "iss": JWT_ISSUER,
+            "aud": JWT_AUDIENCE,
         },
         JWT_SECRET,
         algorithm="HS256",

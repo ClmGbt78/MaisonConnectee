@@ -1,7 +1,8 @@
 import sqlite3
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.security import get_current_user, require_admin
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -56,7 +57,7 @@ def convertir_appareil(ligne):
     return appareil
 
 @router.get("/appareils")
-def obtenir_appareils():
+def obtenir_appareils(utilisateur_connecte: dict = Depends(get_current_user)):
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
 
@@ -70,7 +71,10 @@ def obtenir_appareils():
 
 
 @router.post("/appareils", status_code=201)
-def ajouter_appareil(nouvel_appareil: NouvelAppareil):
+def ajouter_appareil(
+    nouvel_appareil: NouvelAppareil,
+    utilisateur_connecte: dict = Depends(require_admin),
+):
     appareil_id = nouvel_appareil.id.strip()
     nom = nouvel_appareil.nom.strip()
     piece = nouvel_appareil.piece.strip()
@@ -112,7 +116,10 @@ def ajouter_appareil(nouvel_appareil: NouvelAppareil):
     }
 
 @router.delete("/appareils/{appareil_id}", status_code=204)
-def supprimer_appareil(appareil_id: str):
+def supprimer_appareil(
+    appareil_id: str,
+    utilisateur_connecte: dict = Depends(require_admin),
+):
     with sqlite3.connect(DB_PATH) as connexion:
         curseur = connexion.execute("""
             DELETE FROM appareils_domotiques
@@ -128,7 +135,10 @@ def supprimer_appareil(appareil_id: str):
     return
 
 @router.get("/appareils/{appareil_id}")
-def obtenir_appareil(appareil_id: str):
+def obtenir_appareil(
+    appareil_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
 
@@ -151,6 +161,7 @@ def obtenir_appareil(appareil_id: str):
 def modifier_appareil(
     appareil_id: str,
     commande: CommandeAppareil,
+    utilisateur_connecte: dict = Depends(get_current_user),
 ):
     with sqlite3.connect(DB_PATH) as connexion:
         curseur = connexion.execute("""

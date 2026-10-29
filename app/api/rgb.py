@@ -1,5 +1,6 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.security import get_current_user
 import subprocess
 from pathlib import Path
 
@@ -23,7 +24,10 @@ def get_modes():
 
 
 @router.post("/mode/{mode}")
-def set_mode(mode: str):
+def set_mode(
+    mode: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
     if mode not in MODES_AUTORISES:
         raise HTTPException(status_code=400, detail="Mode RGB non autorisé")
 

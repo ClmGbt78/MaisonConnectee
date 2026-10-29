@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "Maison Connectée"
     app_version: str = "0.1.0"
     environment: str = "development"
+    allow_public_registration: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
