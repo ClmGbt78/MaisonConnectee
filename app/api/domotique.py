@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_admin
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -73,7 +73,7 @@ def obtenir_appareils(utilisateur_connecte: dict = Depends(get_current_user)):
 @router.post("/appareils", status_code=201)
 def ajouter_appareil(
     nouvel_appareil: NouvelAppareil,
-    utilisateur_connecte: dict = Depends(get_current_user),
+    utilisateur_connecte: dict = Depends(require_admin),
 ):
     appareil_id = nouvel_appareil.id.strip()
     nom = nouvel_appareil.nom.strip()
@@ -118,7 +118,7 @@ def ajouter_appareil(
 @router.delete("/appareils/{appareil_id}", status_code=204)
 def supprimer_appareil(
     appareil_id: str,
-    utilisateur_connecte: dict = Depends(get_current_user),
+    utilisateur_connecte: dict = Depends(require_admin),
 ):
     with sqlite3.connect(DB_PATH) as connexion:
         curseur = connexion.execute("""
