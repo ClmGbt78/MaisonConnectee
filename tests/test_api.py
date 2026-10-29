@@ -7,6 +7,8 @@ os.environ.setdefault("JWT_SECRET", "test-only-secret-not-for-production")
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.api import comptes as comptes_routes
+from app.core.config import Settings
 
 client = TestClient(app)
 
@@ -80,3 +82,24 @@ def test_mutations_domotique_et_rgb_refusent_les_requetes_sans_authentification(
 
     assert reponse_domotique.status_code == 401
     assert reponse_rgb.status_code == 401
+
+
+
+def test_inscription_publique_desactivee_par_defaut(monkeypatch):
+    monkeypatch.setattr(
+        comptes_routes,
+        "get_settings",
+        lambda: Settings(allow_public_registration=False),
+    )
+
+    response = client.post(
+        "/api/comptes/inscription",
+        json={
+            "nom": "Compte test",
+            "email": "compte-test@example.com",
+            "mot_de_passe": "mot-de-passe-test-long",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Les inscriptions publiques sont désactivées."
