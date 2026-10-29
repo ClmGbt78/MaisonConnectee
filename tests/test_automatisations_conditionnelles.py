@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from app.domotique.automations import AutomatisationRepository, MoteurAutomatisations
+from app.domotique.adapters.capteurs import AdaptateurCapteurSimulation
 from app.domotique.repository import AppareilRepository
 
 
@@ -95,3 +96,16 @@ def test_mesure_capteur_est_persistante(tmp_path):
         "valeur": 1,
         "mise_a_jour": date.isoformat(timespec="seconds"),
     }
+
+
+
+def test_adaptateur_simulation_lit_derniere_mesure_sans_modifier_le_stockage(tmp_path):
+    repository, _, _ = preparer(tmp_path)
+    date = datetime(2026, 10, 29, 12, 0)
+    attendue = repository.enregistrer_mesure(
+        "detecteur-presence-salon", "presence", 1, date
+    )
+    adaptateur = AdaptateurCapteurSimulation(repository)
+
+    assert adaptateur.lire_mesure("detecteur-presence-salon") == attendue
+    assert adaptateur.lire_mesure("capteur-inconnu") is None

@@ -52,7 +52,7 @@ La domotique est organisée en couches pour séparer l'API, les règles métier,
 - `app/api/domotique.py` : routes HTTP, authentification et traduction des erreurs en réponses API.
 - `app/domotique/service.py` : règles métier et validation des commandes.
 - `app/domotique/repository.py` : accès à SQLite.
-- `app/domotique/adapters/` : interface des pilotes et adaptateur de simulation local.
+- `app/domotique/adapters/` : interfaces des pilotes d'appareils et de capteurs, avec adaptateurs de simulation locaux.
 - `app/domotique/models.py` : capacités exposées par type d'appareil.
 
 L'adaptateur actuel est **une simulation** : aucune commande n'est envoyée à du matériel. Les capteurs sont en lecture seule. Les lumières exposent également les capacités `luminosite` (0 à 100), `temperature_couleur` (2700 à 6500 K) et `couleur` (format hexadécimal `#RRGGBB`). La luminosité se règle via `PATCH /api/domotique/appareils/{id}/luminosite` avec le corps `{"luminosite": 65}` ; la température de couleur via `PATCH /api/domotique/appareils/{id}/temperature-couleur` avec le corps `{"temperature_couleur": 3000}`. Ces valeurs sont persistées dans SQLite. La température basse correspond à une lumière plus chaude, la température élevée à une lumière plus froide. La couleur se règle via `PATCH /api/domotique/appareils/{id}/couleur` avec le corps `{"couleur": "#FF8800"}`. La couleur RGB est persistée dans SQLite. L’adaptateur reste une simulation et n’agit sur aucun matériel réel. Les nouvelles colonnes sont ajoutées par migration additive, sans écraser les réglages existants. Les lumières déjà présentes reçoivent la couleur blanche `#FFFFFF` uniquement si aucune couleur n'est enregistrée. Les réponses des appareils incluent le champ `capacites`, et la liste peut être filtrée avec `GET /api/domotique/appareils?piece=Salon&type=lumiere`.
@@ -112,4 +112,17 @@ Deux capteurs de démonstration sont ajoutés sans remplacer les appareils déj�
   - `GET/POST /api/domotique/automatisations/conditionnelles`
   - `PATCH/DELETE /api/domotique/automatisations/conditionnelles/{id}`
 
-Les mesures et règles sont conservées dans SQLite. Une première mesure du capteur doit être simulée avant de créer une règle, afin de vérifier que le type de mesure correspond au déclencheur. Les capteurs et actions restent simulés : aucun matériel réel n'est piloté. L'absence prolongée est calculée à partir de l'heure de la dernière mesure indiquant l'absence ; un redémarrage conserve cette date.
+Les mesures et règles sont conservées dans SQLite. Une première mesure du capteur doit être simulée avant de créer une règle, afin de vérifier que le type de mesure correspond au déclencheur. Le moteur lit désormais les mesures via le contrat `AdaptateurCapteur` (`lire_mesure`) ; `AdaptateurCapteurSimulation` fournit l'implémentation actuelle à partir de SQLite. Un futur pilote physique pourra implémenter ce même contrat sans modifier les règles métier. Les capteurs et actions restent simulés : aucun matériel réel n'est piloté. L'absence prolongée est calculée à partir de l'heure de la dernière mesure indiquant l'absence ; un redémarrage conserve cette date.
+
+### Transport USB / série pour les futurs capteurs
+
+Un transport série générique est disponible dans `app/domotique/adapters/transport_serie.py`. Il fournit une communication en octets avec un port tel que `COM3` sous Windows, sans imposer le protocole d'un capteur particulier.
+
+- `ConfigurationPortSerie` configure le port, le débit (9600 bauds par défaut) et le délai de lecture.
+- `TransportSeriePySerial` expose `ouvrir()`, `lire(taille)`, `ecrire(octets)` et `fermer()`, ainsi qu'une utilisation avec `with`.
+- Le port série est injecté dans les tests : aucun matériel n'est nécessaire pour tester le transport.
+- La dépendance matérielle reste facultative. Lorsqu'un capteur compatible sera choisi, installe pySerial dans l'environnement virtuel avec `python -m pip install pyserial`. Elle n'est pas ajoutée aux dépendances obligatoires du projet.
+- Ce transport ne décode pas les messages et ne lit aucune mesure à lui seul. Un adaptateur propre au modèle du capteur devra convertir son protocole en mesures compatibles avec `AdaptateurCapteur`.
+
+Aucun port COM n'est ouvert automatiquement au démarrage et aucun matériel n'est piloté tant qu'un adaptateur concret n'a pas été configuré.
+

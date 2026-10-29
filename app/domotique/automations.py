@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+from app.domotique.adapters.capteurs import AdaptateurCapteur, AdaptateurCapteurSimulation
 from app.domotique.repository import DB_PATH
 
 
@@ -227,9 +228,12 @@ class AutomatisationRepository:
 class MoteurAutomatisations:
     """Moteur local : vérifie les horaires périodiquement, sans service externe."""
 
-    def __init__(self, repository: AutomatisationRepository, service_domotique):
+    def __init__(self, repository: AutomatisationRepository, service_domotique, adaptateur_capteurs: AdaptateurCapteur | None = None):
         self.repository = repository
         self.service_domotique = service_domotique
+        # Le mode simulation reste le comportement par défaut ; un pilote physique
+        # pourra être injecté sans modifier le moteur d'automatisations.
+        self.adaptateur_capteurs = adaptateur_capteurs or AdaptateurCapteurSimulation(repository)
         self._task: asyncio.Task | None = None
 
     async def demarrer(self) -> None:
@@ -277,11 +281,10 @@ class MoteurAutomatisations:
     
     def executer_conditions(self, maintenant: datetime | None = None) -> None:
         maintenant = maintenant or datetime.now()
-        mesures = {m["appareil_id"]: m for m in self.repository.lister_mesures()}
         for regle in self.repository.lister_conditionnelles():
             if not regle["active"]:
                 continue
-            mesure = mesures.get(regle["capteur_id"])
+            mesure = self.adaptateur_capteurs.lire_mesure(regle["capteur_id"])
             if mesure is None:
                 continue
             valeur = float(mesure["valeur"])
