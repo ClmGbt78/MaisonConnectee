@@ -5,6 +5,9 @@ from app.api.routes import router
 from app.core.config import get_settings
 from app.api.domotique import router as domotique_router
 from app.api.comptes import router as comptes_router
+from app.api.automatisations import router as automatisations_router, automatisations
+from app.domotique.automations import MoteurAutomatisations
+from app.api.domotique import service as service_domotique
 
 settings = get_settings()
 
@@ -37,3 +40,16 @@ app.include_router(router, prefix="/api")
 app.include_router(domotique_router, prefix="/api")
 app.include_router(rgb_router, prefix="/api")
 app.include_router(comptes_router, prefix="/api")
+app.include_router(automatisations_router, prefix="/api")
+
+moteur_automatisations = MoteurAutomatisations(automatisations, service_domotique)
+
+
+@app.on_event("startup")
+async def demarrer_automatisations():
+    await moteur_automatisations.demarrer()
+
+
+@app.on_event("shutdown")
+async def arreter_automatisations():
+    await moteur_automatisations.arreter()
