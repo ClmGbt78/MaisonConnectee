@@ -1637,3 +1637,33 @@ font-size: 26px;
   .scene-details { flex-basis: calc(100% - 48px); }
   .scene-card button { flex: 1; }
 }
+
+
+.automation-panel .scene-form select,
+.automation-panel .scene-form input[type="time"],
+.automation-panel .scene-form input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #35445d;
+  border-radius: 8px;
+  background: #0b1424;
+  color: #edf1fa;
+  font: inherit;
+}
+.automation-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.automation-days label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border: 1px solid #35445d;
+  border-radius: 8px;
+  background: #0d1728;
+}
+.automation-days input { accent-color: #65e3ce; }
+.automation-list { display: grid; gap: 10px; }
