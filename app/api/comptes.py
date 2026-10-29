@@ -18,6 +18,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = BASE_DIR / "comptes.db"
 
 password_hash = PasswordHash.recommended()
+HASH_MOT_DE_PASSE_INVALIDE = password_hash.hash("invalid-password-placeholder")
 
 # Limitation en mémoire : convient au mode local mono-processus. Pour plusieurs
 # workers ou plusieurs serveurs, utiliser un stockage partagé (ex. Redis).
@@ -152,14 +153,16 @@ def connecter_utilisateur(donnees: Connexion, request: Request):
             (email,),
         ).fetchone()
 
-    if (
-        utilisateur is None
-        or not password_hash.verify(
-            donnees.mot_de_passe,
-            utilisateur["mot_de_passe_hash"] if utilisateur is not None else password_hash.hash("invalid-password-placeholder"),
-        )
-        or not utilisateur["actif"]
-    ):
+    mot_de_passe_valide = password_hash.verify(
+        donnees.mot_de_passe,
+        (
+            utilisateur["mot_de_passe_hash"]
+            if utilisateur is not None
+            else HASH_MOT_DE_PASSE_INVALIDE
+        ),
+    )
+
+    if utilisateur is None or not mot_de_passe_valide or not utilisateur["actif"]:
         _enregistrer_echec_connexion(email, adresse_ip)
         raise HTTPException(
             status_code=401,
