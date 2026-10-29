@@ -8,6 +8,7 @@ from app.domotique.service import (
     AppareilIntrouvable,
     AppareilService,
     CommandeNonSupportee,
+    ErreurAdaptateur,
     TypeAppareilInvalide,
 )
 
@@ -114,4 +115,9 @@ def modifier_appareil(
         raise HTTPException(
             status_code=409,
             detail="Cet appareil est en lecture seule et ne peut pas être commandé",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la commande",
         )
