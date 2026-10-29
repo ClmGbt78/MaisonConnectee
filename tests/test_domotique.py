@@ -61,3 +61,18 @@ def test_commande_simulee_persiste_le_nouvel_etat(service):
 def test_appareil_absent_declenche_une_erreur_metier(service):
     with pytest.raises(AppareilIntrouvable):
         service.obtenir("appareil-inexistant")
+
+def test_echec_adaptateur_ne_modifie_pas_etat(service):
+    from app.domotique.service import ErreurAdaptateur
+
+    class AdaptateurEnPanne:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool:
+            raise RuntimeError("pilote indisponible")
+
+    service.adaptateur = AdaptateurEnPanne()
+
+    with pytest.raises(ErreurAdaptateur):
+        service.commander("lampe-salon", True)
+
+    assert service.obtenir("lampe-salon")["allume"] is False
+
