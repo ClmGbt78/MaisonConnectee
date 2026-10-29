@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.security import get_current_user
 from app.api import comptes as comptes_routes
+from app.api import comptes as comptes_routes
 from app.core.config import Settings
 
 client = TestClient(app)
@@ -134,3 +135,46 @@ def test_lectures_privees_refusees_sans_authentification():
     for chemin in chemins_prives:
         response = client.get(chemin)
         assert response.status_code == 401, chemin
+
+
+
+def test_gestion_appareils_refuse_un_compte_membre():
+    app.dependency_overrides[get_current_user] = lambda: {
+        "id": 2,
+        "nom": "Membre test",
+        "email": "membre-test@example.com",
+        "role": "membre",
+        "actif": 1,
+    }
+    try:
+        ajout = client.post(
+            "/api/domotique/appareils",
+            json={
+                "id": "appareil-membre-test",
+                "nom": "Appareil test",
+                "piece": "Test",
+                "type": "lumiere",
+            },
+        )
+        suppression = client.delete("/api/domotique/appareils/lampe-salon")
+
+        assert ajout.status_code == 403
+        assert suppression.status_code == 403
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_limitation_tentatives_connexion(monkeypatch):
+    comptes_routes._echecs_connexion.clear()
+    monkeypatch.setattr(comptes_routes, "MAX_ECHECS_CONNEXION", 2)
+    email = "limite-test@example.com"
+    adresse_ip = "192.0.2.10"
+
+    comptes_routes._enregistrer_echec_connexion(email, adresse_ip)
+    comptes_routes._enregistrer_echec_connexion(email, adresse_ip)
+
+    with pytest.raises(Exception) as erreur:
+        comptes_routes._verifier_limite_connexion(email, adresse_ip)
+
+    assert getattr(erreur.value, "status_code", None) == 429
+    comptes_routes._echecs_connexion.clear()
