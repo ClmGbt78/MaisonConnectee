@@ -49,6 +49,13 @@ type SceneLumineuse = {
   couleur: string;
 };
 
+type Automatisation = {
+  id: string; nom: string; active: boolean; heure: string; jours: number[];
+  scene_id: string; piece: string | null; extinction_minutes: number | null;
+};
+
+const JOURS_SEMAINE = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
 type HistoriqueIndicateur = {
   heure_utc: string;
   cpu_pct: number;
@@ -348,6 +355,14 @@ function App() {
   const [temperatureScene, setTemperatureScene] = useState(3000);
   const [couleurScene, setCouleurScene] = useState("#FFB36B");
   const [sceneEnCours, setSceneEnCours] = useState(false);
+  const [automatisations, setAutomatisations] = useState<Automatisation[]>([]);
+  const [nomAutomatisation, setNomAutomatisation] = useState("");
+  const [heureAutomatisation, setHeureAutomatisation] = useState("20:00");
+  const [joursAutomatisation, setJoursAutomatisation] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [sceneAutomatisation, setSceneAutomatisation] = useState("");
+  const [pieceAutomatisation, setPieceAutomatisation] = useState("");
+  const [extinctionAutomatisation, setExtinctionAutomatisation] = useState("");
+  const [automatisationEnCours, setAutomatisationEnCours] = useState(false);
 
   async function chargerAppareils() {
     try {
@@ -445,6 +460,74 @@ function App() {
     } catch (erreur) {
       setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
     } finally { setSceneEnCours(false); }
+  }
+
+  async function chargerAutomatisations() {
+    try {
+      const response = await apiFetch("/api/domotique/automatisations");
+      if (!response.ok) throw new Error("Chargement impossible");
+      setAutomatisations(await response.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les automatisations.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    void chargerAutomatisations();
+  }, [utilisateurConnecte]);
+
+  async function creerAutomatisation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!sceneAutomatisation || joursAutomatisation.length === 0) return;
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch("/api/domotique/automatisations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: nomAutomatisation.trim(), heure: heureAutomatisation,
+          jours: joursAutomatisation, scene_id: sceneAutomatisation,
+          piece: pieceAutomatisation || null,
+          extinction_minutes: extinctionAutomatisation ? Number(extinctionAutomatisation) : null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Création impossible.");
+      setAutomatisations((items) => [...items, data].sort((a, b) => a.heure.localeCompare(b.heure)));
+      setNomAutomatisation("");
+      setMessageDomotique("Automatisation enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de création.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function basculerAutomatisation(item: Automatisation) {
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/${item.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !item.active }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Modification impossible.");
+      setAutomatisations((items) => items.map((current) => current.id === item.id ? data : current));
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de modification.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function supprimerAutomatisation(item: Automatisation) {
+    if (!window.confirm(`Supprimer l'automatisation « ${item.nom} » ?`)) return;
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/${item.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Suppression impossible.");
+      setAutomatisations((items) => items.filter((current) => current.id !== item.id));
+      setMessageDomotique("Automatisation supprimée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally { setAutomatisationEnCours(false); }
   }
 
   async function basculerAppareil(appareil: Appareil) {
@@ -1484,6 +1567,51 @@ function App() {
               {scenes.length === 0 && <p className="metric-detail">Aucune scène enregistrée pour le moment.</p>}
             </div>
             {messageDomotique && <p role="status" className="scene-message">{messageDomotique}</p>}
+          </section>
+
+          <section className="scenes-panel automation-panel">
+            <div className="section-heading">
+              <div><h2>Automatisations horaires</h2><p>Déclenche une scène à l'heure choisie, pour toute la maison ou une pièce</p></div>
+              <span className="module-count">{automatisations.length} RÈGLES</span>
+            </div>
+            <form className="scene-form" onSubmit={creerAutomatisation}>
+              <label htmlFor="nom-automation">Nom de la règle</label>
+              <input id="nom-automation" value={nomAutomatisation} onChange={(event) => setNomAutomatisation(event.target.value)} placeholder="Ex. : Ambiance du soir" required maxLength={80} />
+              <label htmlFor="heure-automation">Heure de déclenchement (heure locale du PC)</label>
+              <input id="heure-automation" type="time" value={heureAutomatisation} onChange={(event) => setHeureAutomatisation(event.target.value)} required />
+              <label>Jours d'activation</label>
+              <div className="automation-days">
+                {JOURS_SEMAINE.map((jour, index) => (
+                  <label key={jour}><input type="checkbox" checked={joursAutomatisation.includes(index + 1)} onChange={(event) => setJoursAutomatisation((jours) => event.target.checked ? [...jours, index + 1].sort() : jours.filter((value) => value !== index + 1))} />{jour}</label>
+                ))}
+              </div>
+              <label htmlFor="scene-automation">Scène à appliquer</label>
+              <select id="scene-automation" value={sceneAutomatisation} onChange={(event) => setSceneAutomatisation(event.target.value)} required>
+                <option value="">Choisir une scène</option>
+                {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.nom}</option>)}
+              </select>
+              <label htmlFor="piece-automation">Pièce ciblée (facultatif)</label>
+              <select id="piece-automation" value={pieceAutomatisation} onChange={(event) => setPieceAutomatisation(event.target.value)}>
+                <option value="">Toutes les pièces</option>
+                {[...new Set(appareils.filter((appareil) => appareil.type === "lumiere").map((appareil) => appareil.piece))].sort().map((piece) => <option key={piece} value={piece}>{piece}</option>)}
+              </select>
+              <label htmlFor="extinction-automation">Éteindre automatiquement après (minutes, facultatif)</label>
+              <input id="extinction-automation" type="number" min="1" max="1440" value={extinctionAutomatisation} onChange={(event) => setExtinctionAutomatisation(event.target.value)} placeholder="Ex. : 90" />
+              <button type="submit" disabled={automatisationEnCours || !nomAutomatisation.trim() || !sceneAutomatisation || joursAutomatisation.length === 0 || scenes.length === 0}>{automatisationEnCours ? "En cours…" : "Créer l'automatisation"}</button>
+            </form>
+            <div className="automation-list">
+              {automatisations.map((item) => (
+                <article className="scene-card" key={item.id}>
+                  <div className="scene-details">
+                    <strong>{item.nom} · {item.heure}</strong>
+                    <span>{item.jours.map((jour) => JOURS_SEMAINE[jour - 1]).join(", ")} · {scenes.find((scene) => scene.id === item.scene_id)?.nom ?? "Scène"} · {item.piece || "Toutes les pièces"}{item.extinction_minutes ? ` · Extinction après ${item.extinction_minutes} min` : ""}</span>
+                  </div>
+                  <button type="button" className={item.active ? "" : "scene-delete"} onClick={() => void basculerAutomatisation(item)} disabled={automatisationEnCours}>{item.active ? "Activée" : "Désactivée"}</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerAutomatisation(item)} disabled={automatisationEnCours}>Supprimer</button>
+                </article>
+              ))}
+              {automatisations.length === 0 && <p className="metric-detail">Aucune automatisation configurée.</p>}
+            </div>
           </section>
 
           {utilisateurConnecte.role === "admin" && (
