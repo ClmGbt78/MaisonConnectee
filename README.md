@@ -55,7 +55,7 @@ La domotique est organisée en couches pour séparer l'API, les règles métier,
 - `app/domotique/adapters/` : interface des pilotes et adaptateur de simulation local.
 - `app/domotique/models.py` : capacités exposées par type d'appareil.
 
-L'adaptateur actuel est **une simulation** : aucune commande n'est envoyée à du matériel. Les capteurs sont en lecture seule. Les réponses des appareils incluent le champ `capacites`, et la liste peut être filtrée avec `GET /api/domotique/appareils?piece=Salon&type=lumiere`.
+L'adaptateur actuel est **une simulation** : aucune commande n'est envoyée à du matériel. Les capteurs sont en lecture seule. Les lumières exposent également la capacité `luminosite` (0 à 100) via `PATCH /api/domotique/appareils/{id}/luminosite` avec le corps `{"luminosite": 65}`. Cette valeur est persistée dans SQLite ; l’adaptateur reste une simulation et n’agit sur aucun matériel réel. Les réponses des appareils incluent le champ `capacites`, et la liste peut être filtrée avec `GET /api/domotique/appareils?piece=Salon&type=lumiere`.
 
 ### Données locales
 
