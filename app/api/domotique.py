@@ -57,7 +57,7 @@ def convertir_appareil(ligne):
     return appareil
 
 @router.get("/appareils")
-def obtenir_appareils():
+def obtenir_appareils(utilisateur_connecte: dict = Depends(get_current_user)):
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
 
@@ -135,7 +135,10 @@ def supprimer_appareil(
     return
 
 @router.get("/appareils/{appareil_id}")
-def obtenir_appareil(appareil_id: str):
+def obtenir_appareil(
+    appareil_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
     with sqlite3.connect(DB_PATH) as connexion:
         connexion.row_factory = sqlite3.Row
 
