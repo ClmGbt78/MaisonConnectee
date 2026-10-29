@@ -87,3 +87,22 @@ class AppareilService:
         if resultat is None:
             raise AppareilIntrouvable
         return self.presenter(resultat)
+
+    def regler_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> dict:
+        appareil = self.repository.obtenir(appareil_id)
+        if appareil is None:
+            raise AppareilIntrouvable
+        if "temperature_couleur" not in capacites_pour_type(appareil["type"]):
+            raise CommandeNonSupportee
+        if not 2700 <= temperature_couleur <= 6500:
+            raise ValueError("La température de couleur doit être comprise entre 2700 et 6500 K")
+        try:
+            valeur_confirmee = self.adaptateur.appliquer_temperature_couleur(appareil_id, temperature_couleur)
+        except Exception as erreur:
+            raise ErreurAdaptateur("Le pilote n’a pas pu appliquer la température de couleur") from erreur
+        if not 2700 <= valeur_confirmee <= 6500:
+            raise ErreurAdaptateur("Le pilote a retourné une température de couleur invalide")
+        resultat = self.repository.definir_temperature_couleur(appareil_id, valeur_confirmee)
+        if resultat is None:
+            raise AppareilIntrouvable
+        return self.presenter(resultat)
