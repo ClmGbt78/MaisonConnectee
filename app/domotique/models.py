@@ -17,7 +17,7 @@ class Appareil(BaseModel):
 def capacites_pour_type(type_appareil: str) -> list[str]:
     """Décrit les commandes actuellement prises en charge par chaque type."""
     if type_appareil == "lumiere":
-        return ["marche_arret", "luminosite"]
+        return ["marche_arret"]
     if type_appareil in {"ventilation", "prise"}:
         return ["marche_arret"]
     if type_appareil == "capteur":
