@@ -126,3 +126,16 @@ Un transport série générique est disponible dans `app/domotique/adapters/tran
 
 Aucun port COM n'est ouvert automatiquement au démarrage et aucun matériel n'est piloté tant qu'un adaptateur concret n'a pas été configuré.
 
+
+
+### Découverte des ports USB / série
+
+La route authentifiée `GET /api/domotique/automatisations/ports-serie` liste les ports série détectés sur le PC Windows. Elle retourne le nom du port, sa description, le fabricant et l'identifiant USB lorsqu'il est disponible.
+
+Cette découverte est passive : elle n'ouvre aucun port, n'envoie aucune donnée et ne modifie pas les capteurs simulés. Si pySerial n'est pas installé, l'API répond avec le statut 503 et indique la commande d'installation. Pour activer cette fonctionnalité dans l'environnement virtuel :
+
+```powershell
+.\\.venv\\Scripts\\python.exe -m pip install pyserial
+```
+
+Un résultat vide signifie simplement qu'aucun port série n'a été détecté à cet instant.
