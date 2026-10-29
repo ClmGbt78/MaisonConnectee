@@ -1425,6 +1425,7 @@ function App() {
               <p className="domotic-room">{appareil.piece}</p>
 
               {appareil.type === "lumiere" && appareil.capacites?.includes("luminosite") && (
+                <>
                 <div className="domotic-brightness">
                   <label htmlFor={`luminosite-${appareil.id}`}>
                     Luminosité : {appareil.luminosite ?? 100}%
@@ -1485,6 +1486,7 @@ function App() {
                   <div className="domotic-temperature-labels" aria-hidden="true">
                     <span>Chaud</span><span>Froid</span>
                   </div>
+                </>
                 </div>
               )}
 
