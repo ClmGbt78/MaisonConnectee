@@ -15,3 +15,7 @@ class AdaptateurSimulation(AdaptateurAppareil):
     def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int:
         del appareil_id
         return temperature_couleur
+
+    def appliquer_couleur(self, appareil_id: str, couleur: str) -> str:
+        del appareil_id
+        return couleur.upper()
