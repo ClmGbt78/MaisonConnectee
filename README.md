@@ -139,3 +139,14 @@ Cette découverte est passive : elle n'ouvre aucun port, n'envoie aucune donnée
 ```
 
 Un résultat vide signifie simplement qu'aucun port série n'a été détecté à cet instant.
+
+
+### Association d'un capteur à un port série
+
+Les routes authentifiées permettent d'enregistrer une association descriptive entre un capteur logique et un port COM détecté :
+
+- `GET /api/domotique/automatisations/capteurs/configurations-serie` : lister les associations.
+- `PUT /api/domotique/automatisations/capteurs/{capteur_id}/configuration-serie` avec `{"port":"COM4","debit":9600}` : associer un port détecté au capteur.
+- `DELETE /api/domotique/automatisations/capteurs/{capteur_id}/configuration-serie` : retirer l'association.
+
+Le port doit apparaître dans la découverte actuelle et ne peut être associé qu'à un seul capteur. Le débit est configurable (300 à 2 000 000 bauds, 9600 par défaut). La configuration est persistée dans SQLite. Cette étape ne réalise aucune connexion série, ne transmet aucun octet et ne modifie pas le mode de simulation. Le champ protocole reste « a_configurer » jusqu'à ce que le modèle de capteur et son format de message soient connus.
