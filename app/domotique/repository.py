@@ -80,7 +80,7 @@ class AppareilRepository:
         with sqlite3.connect(self.db_path) as connexion:
             connexion.row_factory = sqlite3.Row
             ligne = connexion.execute(
-                "SELECT id, nom, piece, type, allume, luminosite FROM appareils_domotiques WHERE id = ?",
+                "SELECT id, nom, piece, type, allume, luminosite, temperature_couleur FROM appareils_domotiques WHERE id = ?",
                 (appareil_id,),
             ).fetchone()
         return self._convertir(ligne) if ligne is not None else None
