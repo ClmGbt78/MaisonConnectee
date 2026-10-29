@@ -48,8 +48,6 @@ def etat_systeme():
 
 
 @router.get("/systeme/indicateurs")
-
-@router.get("/systeme/indicateurs")
 def indicateurs_systeme():
     memoire = psutil.virtual_memory()
     disque = shutil.disk_usage("C:\\")
