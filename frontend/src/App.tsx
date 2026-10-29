@@ -1486,8 +1486,8 @@ function App() {
                   <div className="domotic-temperature-labels" aria-hidden="true">
                     <span>Chaud</span><span>Froid</span>
                   </div>
-                </>
                 </div>
+                </>
               )}
 
               <div className="domotic-card-bottom">
