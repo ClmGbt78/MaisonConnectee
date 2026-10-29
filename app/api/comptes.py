@@ -5,6 +5,7 @@ import jwt
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from app.core.security import JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET
+from app.core.config import get_settings
 from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 
@@ -48,6 +49,12 @@ class Connexion(BaseModel):
 
 @router.post("/inscription")
 def inscrire_utilisateur(utilisateur: Inscription):
+    if not get_settings().allow_public_registration:
+        raise HTTPException(
+            status_code=403,
+            detail="Les inscriptions publiques sont désactivées.",
+        )
+
     nom = utilisateur.nom.strip()
     email = str(utilisateur.email).strip().lower()
 
