@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from app.core.security import get_current_user
 from app.api.domotique import repository as scene_repository, service as service_domotique
 from app.domotique.automations import AutomatisationRepository
+from app.domotique.adapters.ports_serie import lister_ports_disponibles
 
 router = APIRouter(prefix="/domotique/automatisations", tags=["Automatisations"])
 automatisations = AutomatisationRepository()
@@ -93,6 +94,14 @@ class NouvelleConditionnelle(BaseModel):
 class MesureSimulee(BaseModel):
     type_mesure: str = Field(pattern=r"^(luminosite|presence)$")
     valeur: float = Field(ge=0, le=2000)
+
+
+@router.get("/ports-serie")
+def obtenir_ports_serie(utilisateur: dict = Depends(get_current_user)):
+    try:
+        return lister_ports_disponibles()
+    except RuntimeError as erreur:
+        raise HTTPException(status_code=503, detail=str(erreur)) from erreur
 
 
 @router.get("/capteurs")
