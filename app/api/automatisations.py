@@ -142,7 +142,9 @@ def creer_conditionnelle(
     mesures = {m["appareil_id"]: m for m in automatisations.lister_mesures()}
     mesure = mesures.get(item.capteur_id)
     type_attendu = "luminosite" if item.condition == "luminosite_inferieure" else "presence"
-    if mesure is not None and mesure["type_mesure"] != type_attendu:
+    if mesure is None:
+        raise HTTPException(status_code=422, detail="Simule une première mesure du capteur avant de créer la règle")
+    if mesure["type_mesure"] != type_attendu:
         raise HTTPException(status_code=422, detail="Le type de mesure ne correspond pas à la condition")
     if item.condition == "luminosite_inferieure":
         if item.seuil is None or item.scene_id is None:
