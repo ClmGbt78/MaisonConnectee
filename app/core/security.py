@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BASE_DIR / ".env")
@@ -73,13 +73,8 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
     return dict(utilisateur)
 
 
-def require_admin(utilisateur: dict = None):
+def require_admin(utilisateur: dict = Depends(get_current_user)):
     """Refuse les opérations d'administration aux comptes non administrateurs."""
-    from fastapi import Depends
-
-    # Supporte Depends explicitement sans dupliquer la validation du JWT.
-    if utilisateur is None:
-        raise HTTPException(status_code=403, detail="Droits administrateur requis")
     if str(utilisateur.get("role", "")).lower() != "admin":
         raise HTTPException(status_code=403, detail="Droits administrateur requis")
     return utilisateur
