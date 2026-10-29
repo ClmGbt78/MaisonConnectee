@@ -27,7 +27,8 @@ class AppareilRepository:
                     type TEXT NOT NULL,
                     allume INTEGER NOT NULL DEFAULT 0,
                     luminosite INTEGER,
-                    temperature_couleur INTEGER
+                    temperature_couleur INTEGER,
+                    couleur TEXT
                 )
             """)
             colonnes = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(appareils_domotiques)")}
@@ -36,6 +37,8 @@ class AppareilRepository:
                 connexion.execute("ALTER TABLE appareils_domotiques ADD COLUMN luminosite INTEGER")
             if "temperature_couleur" not in colonnes:
                 connexion.execute("ALTER TABLE appareils_domotiques ADD COLUMN temperature_couleur INTEGER")
+            if "couleur" not in colonnes:
+                connexion.execute("ALTER TABLE appareils_domotiques ADD COLUMN couleur TEXT")
             # INSERT OR IGNORE préserve les appareils et états déjà présents.
             connexion.executemany("""
                 INSERT OR IGNORE INTO appareils_domotiques
@@ -51,6 +54,10 @@ class AppareilRepository:
                 UPDATE appareils_domotiques SET temperature_couleur = 4000
                 WHERE type = 'lumiere' AND temperature_couleur IS NULL
             """)
+            connexion.execute("""
+                UPDATE appareils_domotiques SET couleur = '#FFFFFF'
+                WHERE type = 'lumiere' AND couleur IS NULL
+            """)
 
     @staticmethod
     def _convertir(ligne: sqlite3.Row) -> dict:
@@ -59,7 +66,7 @@ class AppareilRepository:
         return appareil
 
     def lister(self, piece: str | None = None, type_appareil: str | None = None) -> list[dict]:
-        requete = "SELECT id, nom, piece, type, allume, luminosite, temperature_couleur FROM appareils_domotiques"
+        requete = "SELECT id, nom, piece, type, allume, luminosite, temperature_couleur, couleur FROM appareils_domotiques"
         conditions: list[str] = []
         parametres: list[str] = []
         if piece:
@@ -88,9 +95,9 @@ class AppareilRepository:
     def ajouter(self, appareil: dict) -> dict:
         with sqlite3.connect(self.db_path) as connexion:
             connexion.execute("""
-                INSERT INTO appareils_domotiques (id, nom, piece, type, allume, luminosite, temperature_couleur)
-                VALUES (?, ?, ?, ?, 0, ?, ?)
-            """, (appareil["id"], appareil["nom"], appareil["piece"], appareil["type"], 100 if appareil["type"] == "lumiere" else None, 4000 if appareil["type"] == "lumiere" else None))
+                INSERT INTO appareils_domotiques (id, nom, piece, type, allume, luminosite, temperature_couleur, couleur)
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+            """, (appareil["id"], appareil["nom"], appareil["piece"], appareil["type"], 100 if appareil["type"] == "lumiere" else None, 4000 if appareil["type"] == "lumiere" else None, "#FFFFFF" if appareil["type"] == "lumiere" else None))
         return self.obtenir(appareil["id"])  # type: ignore[return-value]
 
     def supprimer(self, appareil_id: str) -> bool:
@@ -129,3 +136,4 @@ class AppareilRepository:
             if curseur.rowcount == 0:
                 return None
         return self.obtenir(appareil_id)
+
