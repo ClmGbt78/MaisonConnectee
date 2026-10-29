@@ -137,3 +137,13 @@ class AppareilRepository:
                 return None
         return self.obtenir(appareil_id)
 
+
+    def definir_couleur(self, appareil_id: str, couleur: str) -> dict | None:
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute(
+                "UPDATE appareils_domotiques SET couleur = ? WHERE id = ? AND type = 'lumiere'",
+                (couleur, appareil_id),
+            )
+            if curseur.rowcount == 0:
+                return None
+        return self.obtenir(appareil_id)
