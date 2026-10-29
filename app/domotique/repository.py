@@ -33,17 +33,17 @@ class AppareilRepository:
             if "luminosite" not in colonnes:
                 # Migration additive : ne modifie ni ne supprime les colonnes existantes.
                 connexion.execute("ALTER TABLE appareils_domotiques ADD COLUMN luminosite INTEGER")
-            # Les lumières existantes reçoivent une valeur initiale sans écraser les réglages.
-            connexion.execute("""
-                UPDATE appareils_domotiques SET luminosite = 100
-                WHERE type = 'lumiere' AND luminosite IS NULL
-            """)
             # INSERT OR IGNORE préserve les appareils et états déjà présents.
             connexion.executemany("""
                 INSERT OR IGNORE INTO appareils_domotiques
                     (id, nom, piece, type, allume)
                 VALUES (?, ?, ?, ?, ?)
             """, APPAREILS_INITIAUX)
+            # Les lumières existantes reçoivent une valeur initiale sans écraser les réglages.
+            connexion.execute("""
+                UPDATE appareils_domotiques SET luminosite = 100
+                WHERE type = 'lumiere' AND luminosite IS NULL
+            """)
 
     @staticmethod
     def _convertir(ligne: sqlite3.Row) -> dict:
@@ -73,7 +73,7 @@ class AppareilRepository:
         with sqlite3.connect(self.db_path) as connexion:
             connexion.row_factory = sqlite3.Row
             ligne = connexion.execute(
-                "SELECT id, nom, piece, type, allume FROM appareils_domotiques WHERE id = ?",
+                "SELECT id, nom, piece, type, allume, luminosite FROM appareils_domotiques WHERE id = ?",
                 (appareil_id,),
             ).fetchone()
         return self._convertir(ligne) if ligne is not None else None
