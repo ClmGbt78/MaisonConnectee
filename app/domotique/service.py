@@ -68,3 +68,22 @@ class AppareilService:
         if resultat is None:
             raise AppareilIntrouvable
         return self.presenter(resultat)
+
+    def regler_luminosite(self, appareil_id: str, luminosite: int) -> dict:
+        appareil = self.repository.obtenir(appareil_id)
+        if appareil is None:
+            raise AppareilIntrouvable
+        if "luminosite" not in capacites_pour_type(appareil["type"]):
+            raise CommandeNonSupportee
+        if not 0 <= luminosite <= 100:
+            raise ValueError("La luminosité doit être comprise entre 0 et 100")
+        try:
+            valeur_confirmee = self.adaptateur.appliquer_luminosite(appareil_id, luminosite)
+        except Exception as erreur:
+            raise ErreurAdaptateur("Le pilote n’a pas pu appliquer la luminosité") from erreur
+        if not 0 <= valeur_confirmee <= 100:
+            raise ErreurAdaptateur("Le pilote a retourné une luminosité invalide")
+        resultat = self.repository.definir_luminosite(appareil_id, valeur_confirmee)
+        if resultat is None:
+            raise AppareilIntrouvable
+        return self.presenter(resultat)
