@@ -120,6 +120,7 @@ def test_migration_luminosite_preserve_etat_existant(tmp_path):
     assert lampe is not None
     assert lampe["allume"] is True
     assert lampe["luminosite"] == 100
+    assert lampe["temperature_couleur"] == 4000
     assert repository.obtenir("lampe-salon") is not None
 
 
@@ -157,3 +158,41 @@ def test_valeur_luminosite_invalide_du_pilote_est_refusee(service):
         service.regler_luminosite("lampe-salon", 25)
 
     assert service.obtenir("lampe-salon")["luminosite"] == 100
+
+
+def test_temperature_couleur_est_persistante_et_limitee_aux_lumieres(service):
+    lampe = service.regler_temperature_couleur("lampe-salon", 3000)
+
+    assert lampe["temperature_couleur"] == 3000
+    assert service.obtenir("lampe-salon")["temperature_couleur"] == 3000
+    assert "temperature_couleur" in lampe["capacites"]
+
+    with pytest.raises(CommandeNonSupportee):
+        service.regler_temperature_couleur("ventilateur", 3000)
+
+
+@pytest.mark.parametrize("temperature", [2699, 6501])
+def test_temperature_couleur_hors_limites_refusee(service, temperature):
+    with pytest.raises(ValueError):
+        service.regler_temperature_couleur("lampe-salon", temperature)
+
+
+def test_echec_adaptateur_ne_modifie_pas_temperature_couleur(service):
+    from app.domotique.service import ErreurAdaptateur
+
+    class AdaptateurEnPanne:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool:
+            return allume
+
+        def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int:
+            return luminosite
+
+        def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int:
+            raise RuntimeError("pilote indisponible")
+
+    service.adaptateur = AdaptateurEnPanne()
+
+    with pytest.raises(ErreurAdaptateur):
+        service.regler_temperature_couleur("lampe-salon", 3000)
+
+    assert service.obtenir("lampe-salon")["temperature_couleur"] == 4000

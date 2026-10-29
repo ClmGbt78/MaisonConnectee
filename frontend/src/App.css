@@ -1515,3 +1515,33 @@ font-size: 26px;
   cursor: wait;
   opacity: 0.65;
 }
+
+
+.domotic-temperature {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.domotic-temperature label {
+  color: #b9c6d9;
+  font-size: 12px;
+}
+
+.domotic-temperature input[type="range"] {
+  width: 100%;
+  accent-color: #f6bd60;
+  cursor: pointer;
+}
+
+.domotic-temperature input[type="range"]:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.domotic-temperature-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #8290a8;
+  font-size: 10px;
+}

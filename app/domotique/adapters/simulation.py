@@ -11,3 +11,7 @@ class AdaptateurSimulation(AdaptateurAppareil):
     def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int:
         del appareil_id
         return luminosite
+
+    def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int:
+        del appareil_id
+        return temperature_couleur

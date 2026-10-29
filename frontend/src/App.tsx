@@ -37,6 +37,7 @@ type Appareil = {
   allume: boolean;
   capacites?: string[];
   luminosite?: number | null;
+  temperature_couleur?: number | null;
 };
 
 type HistoriqueIndicateur = {
@@ -433,6 +434,34 @@ function App() {
       setErreurDomotique(false);
     } catch (erreur) {
       setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la luminosité.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
+    }
+  }
+
+  async function reglerTemperatureCouleur(appareil: Appareil, temperature_couleur: number) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/temperature-couleur`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ temperature_couleur }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la température de couleur.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la température de couleur.");
       setErreurDomotique(true);
       void chargerAppareils();
     } finally {
@@ -1396,6 +1425,7 @@ function App() {
               <p className="domotic-room">{appareil.piece}</p>
 
               {appareil.type === "lumiere" && appareil.capacites?.includes("luminosite") && (
+                <>
                 <div className="domotic-brightness">
                   <label htmlFor={`luminosite-${appareil.id}`}>
                     Luminosité : {appareil.luminosite ?? 100}%
@@ -1425,6 +1455,39 @@ function App() {
                     }}
                   />
                 </div>
+                <div className="domotic-temperature">
+                  <label htmlFor={`temperature-${appareil.id}`}>
+                    Température de couleur : {appareil.temperature_couleur ?? 4000} K
+                  </label>
+                  <input
+                    id={`temperature-${appareil.id}`}
+                    type="range"
+                    min={2700}
+                    max={6500}
+                    step={100}
+                    value={appareil.temperature_couleur ?? 4000}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Température de couleur : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const temperature_couleur = Number(event.target.value);
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, temperature_couleur } : element
+                      ));
+                    }}
+                    onPointerUp={(event) =>
+                      void reglerTemperatureCouleur(appareil, Number(event.currentTarget.value))
+                    }
+                    onKeyUp={(event) => {
+                      if (event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") {
+                        void reglerTemperatureCouleur(appareil, Number(event.currentTarget.value));
+                      }
+                    }}
+                  />
+                  <div className="domotic-temperature-labels" aria-hidden="true">
+                    <span>Chaud</span><span>Froid</span>
+                  </div>
+                </div>
+                </>
               )}
 
               <div className="domotic-card-bottom">
