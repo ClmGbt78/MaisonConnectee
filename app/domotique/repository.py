@@ -8,6 +8,8 @@ APPAREILS_INITIAUX = [
     ("lampe-salon", "Lampe du salon", "Salon", "lumiere", 0),
     ("ventilateur", "Ventilateur", "Chambre", "ventilation", 0),
     ("prise-bureau", "Prise du bureau", "Bureau", "prise", 0),
+    ("capteur-luminosite-salon", "Capteur de luminosité", "Salon", "capteur", 0),
+    ("detecteur-presence-salon", "Détecteur de présence", "Salon", "capteur", 0),
 ]
 
 
