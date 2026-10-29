@@ -36,6 +36,7 @@ type Appareil = {
   type: string;
   allume: boolean;
   capacites?: string[];
+  luminosite?: number | null;
 };
 
 type HistoriqueIndicateur = {
@@ -408,6 +409,34 @@ function App() {
       setAppareilsEnCours((anciens) =>
         anciens.filter((id) => id !== appareil.id)
       );
+    }
+  }
+
+  async function reglerLuminosite(appareil: Appareil, luminosite: number) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/luminosite`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ luminosite }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la luminosité.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la luminosité.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
     }
   }
 
@@ -1365,6 +1394,33 @@ function App() {
 
               <h3>{appareil.nom}</h3>
               <p className="domotic-room">{appareil.piece}</p>
+
+              {appareil.type === "lumiere" && appareil.capacites?.includes("luminosite") && (
+                <div className="domotic-brightness">
+                  <label htmlFor={`luminosite-${appareil.id}`}>
+                    Luminosité : {appareil.luminosite ?? 100}%
+                  </label>
+                  <input
+                    id={`luminosite-${appareil.id}`}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={appareil.luminosite ?? 100}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Luminosité : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const luminosite = Number(event.target.value);
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, luminosite } : element
+                      ));
+                    }}
+                    onMouseUp={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
+                    onTouchEnd={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
+                    onKeyUp={() => void reglerLuminosite(appareil, appareil.luminosite ?? 100)}
+                  />
+                </div>
+              )}
 
               <div className="domotic-card-bottom">
                 <span>{appareil.type === "capteur" ? "Capteur" : "Alimentation"}</span>
