@@ -76,3 +76,45 @@ def test_echec_adaptateur_ne_modifie_pas_etat(service):
 
     assert service.obtenir("lampe-salon")["allume"] is False
 
+
+
+def test_luminosite_est_persistante_et_limitee_aux_lumieres(service):
+    lampe = service.regler_luminosite("lampe-salon", 35)
+
+    assert lampe["luminosite"] == 35
+    assert service.obtenir("lampe-salon")["luminosite"] == 35
+    assert "luminosite" in lampe["capacites"]
+
+    with pytest.raises(CommandeNonSupportee):
+        service.regler_luminosite("ventilateur", 35)
+
+
+def test_luminosite_invalide_est_refusee(service):
+    with pytest.raises(ValueError):
+        service.regler_luminosite("lampe-salon", 101)
+
+
+def test_migration_luminosite_preserve_etat_existant(tmp_path):
+    import sqlite3
+
+    chemin = tmp_path / "ancienne-base.db"
+    with sqlite3.connect(chemin) as connexion:
+        connexion.execute("""
+            CREATE TABLE appareils_domotiques (
+                id TEXT PRIMARY KEY, nom TEXT NOT NULL, piece TEXT NOT NULL,
+                type TEXT NOT NULL, allume INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        connexion.execute(
+            "INSERT INTO appareils_domotiques VALUES (?, ?, ?, ?, ?)",
+            ("lampe-perso", "Lampe perso", "Bureau", "lumiere", 1),
+        )
+
+    repository = AppareilRepository(chemin)
+    repository.initialiser()
+
+    lampe = repository.obtenir("lampe-perso")
+    assert lampe is not None
+    assert lampe["allume"] is True
+    assert lampe["luminosite"] == 100
+    assert repository.obtenir("lampe-salon") is not None
