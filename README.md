@@ -113,3 +113,16 @@ Deux capteurs de démonstration sont ajoutés sans remplacer les appareils déj�
   - `PATCH/DELETE /api/domotique/automatisations/conditionnelles/{id}`
 
 Les mesures et règles sont conservées dans SQLite. Une première mesure du capteur doit être simulée avant de créer une règle, afin de vérifier que le type de mesure correspond au déclencheur. Le moteur lit désormais les mesures via le contrat `AdaptateurCapteur` (`lire_mesure`) ; `AdaptateurCapteurSimulation` fournit l'implémentation actuelle à partir de SQLite. Un futur pilote physique pourra implémenter ce même contrat sans modifier les règles métier. Les capteurs et actions restent simulés : aucun matériel réel n'est piloté. L'absence prolongée est calculée à partir de l'heure de la dernière mesure indiquant l'absence ; un redémarrage conserve cette date.
+
+### Transport USB / série pour les futurs capteurs
+
+Un transport série générique est disponible dans `app/domotique/adapters/transport_serie.py`. Il fournit une communication en octets avec un port tel que `COM3` sous Windows, sans imposer le protocole d'un capteur particulier.
+
+- `ConfigurationPortSerie` configure le port, le débit (9600 bauds par défaut) et le délai de lecture.
+- `TransportSeriePySerial` expose `ouvrir()`, `lire(taille)`, `ecrire(octets)` et `fermer()`, ainsi qu'une utilisation avec `with`.
+- Le port série est injecté dans les tests : aucun matériel n'est nécessaire pour tester le transport.
+- La dépendance matérielle reste facultative. Lorsqu'un capteur compatible sera choisi, installe pySerial dans l'environnement virtuel avec `python -m pip install pyserial`. Elle n'est pas ajoutée aux dépendances obligatoires du projet.
+- Ce transport ne décode pas les messages et ne lit aucune mesure à lui seul. Un adaptateur propre au modèle du capteur devra convertir son protocole en mesures compatibles avec `AdaptateurCapteur`.
+
+Aucun port COM n'est ouvert automatiquement au démarrage et aucun matériel n'est piloté tant qu'un adaptateur concret n'a pas été configuré.
+
