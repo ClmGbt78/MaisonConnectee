@@ -7,10 +7,13 @@ from app.core.security import get_current_user
 from app.api.domotique import repository as scene_repository, service as service_domotique
 from app.domotique.automations import AutomatisationRepository
 from app.domotique.adapters.ports_serie import lister_ports_disponibles
+from app.domotique.configuration_capteurs import ConfigurationCapteursRepository
 
 router = APIRouter(prefix="/domotique/automatisations", tags=["Automatisations"])
 automatisations = AutomatisationRepository()
 automatisations.initialiser()
+configurations_capteurs = ConfigurationCapteursRepository()
+configurations_capteurs.initialiser()
 
 
 class NouvelleAutomatisation(BaseModel):
@@ -193,4 +196,51 @@ def supprimer_conditionnelle(
 ):
     if not automatisations.supprimer_conditionnelle(automation_id):
         raise HTTPException(status_code=404, detail="Automatisation conditionnelle introuvable")
+    return Response(status_code=204)
+
+
+class ConfigurationSerieCapteur(BaseModel):
+    port: str = Field(min_length=1, max_length=32)
+    debit: int = Field(default=9600, ge=300, le=2000000)
+
+
+@router.get("/capteurs/configurations-serie")
+def lister_configurations_capteurs(utilisateur: dict = Depends(get_current_user)):
+    return configurations_capteurs.lister()
+
+
+@router.put("/capteurs/{capteur_id}/configuration-serie")
+def configurer_port_capteur(
+    capteur_id: str,
+    configuration: ConfigurationSerieCapteur,
+    utilisateur: dict = Depends(get_current_user),
+):
+    try:
+        capteur = service_domotique.obtenir(capteur_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Capteur introuvable")
+    if capteur["type"] != "capteur":
+        raise HTTPException(status_code=409, detail="L'appareil sélectionné n'est pas un capteur")
+
+    port_demande = configuration.port.strip().upper()
+    try:
+        ports = lister_ports_disponibles()
+    except RuntimeError as erreur:
+        raise HTTPException(status_code=503, detail=str(erreur)) from erreur
+    if port_demande not in {port["port"].upper() for port in ports}:
+        raise HTTPException(status_code=422, detail="Ce port n'est pas détecté actuellement")
+
+    try:
+        return configurations_capteurs.enregistrer(capteur_id, port_demande, configuration.debit)
+    except sqlite3.IntegrityError as erreur:
+        raise HTTPException(status_code=409, detail="Ce port est déjà associé à un autre capteur") from erreur
+
+
+@router.delete("/capteurs/{capteur_id}/configuration-serie", status_code=204)
+def supprimer_configuration_capteur(
+    capteur_id: str,
+    utilisateur: dict = Depends(get_current_user),
+):
+    if not configurations_capteurs.supprimer(capteur_id):
+        raise HTTPException(status_code=404, detail="Aucune configuration série pour ce capteur")
     return Response(status_code=204)
