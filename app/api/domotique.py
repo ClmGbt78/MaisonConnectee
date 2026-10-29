@@ -32,6 +32,10 @@ class ReglageTemperatureCouleur(BaseModel):
     temperature_couleur: int = Field(ge=2700, le=6500)
 
 
+class ReglageCouleur(BaseModel):
+    couleur: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
 class NouvelAppareil(BaseModel):
     id: str = Field(min_length=1, max_length=100)
     nom: str = Field(min_length=1, max_length=120)
@@ -172,4 +176,26 @@ def regler_temperature_couleur(
         raise HTTPException(
             status_code=503,
             detail="Le pilote domotique n’a pas pu appliquer la température de couleur",
+        )
+
+
+@router.patch("/appareils/{appareil_id}/couleur")
+def regler_couleur(
+    appareil_id: str,
+    reglage: ReglageCouleur,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_couleur(appareil_id, reglage.couleur)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La couleur RGB n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la couleur",
         )

@@ -13,3 +13,7 @@ class AdaptateurAppareil(Protocol):
     def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int:
         """Applique une température de couleur en kelvins (2700-6500)."""
         ...
+
+    def appliquer_couleur(self, appareil_id: str, couleur: str) -> str:
+        """Applique une couleur RGB au format #RRGGBB."""
+        ...

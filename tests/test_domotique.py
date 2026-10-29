@@ -196,3 +196,53 @@ def test_echec_adaptateur_ne_modifie_pas_temperature_couleur(service):
         service.regler_temperature_couleur("lampe-salon", 3000)
 
     assert service.obtenir("lampe-salon")["temperature_couleur"] == 4000
+
+
+def test_couleur_rgb_est_persistante_et_limitee_aux_lumieres(service):
+    lampe = service.regler_couleur("lampe-salon", "#12aBcD")
+    assert lampe["couleur"] == "#12ABCD"
+    assert service.obtenir("lampe-salon")["couleur"] == "#12ABCD"
+    assert "couleur" in lampe["capacites"]
+    with pytest.raises(CommandeNonSupportee):
+        service.regler_couleur("ventilateur", "#12ABCD")
+
+
+@pytest.mark.parametrize("couleur", ["red", "#FFF", "#GGGGGG", "123456", "#12345678", ""])
+def test_couleur_rgb_invalide_est_refusee(service, couleur):
+    with pytest.raises(ValueError):
+        service.regler_couleur("lampe-salon", couleur)
+
+
+def test_echec_adaptateur_ne_modifie_pas_couleur(service):
+    from app.domotique.service import ErreurAdaptateur
+    class AdaptateurEnPanne:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool: return allume
+        def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int: return luminosite
+        def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int: return temperature_couleur
+        def appliquer_couleur(self, appareil_id: str, couleur: str) -> str: raise RuntimeError("pilote indisponible")
+    service.adaptateur = AdaptateurEnPanne()
+    with pytest.raises(ErreurAdaptateur):
+        service.regler_couleur("lampe-salon", "#FF0000")
+    assert service.obtenir("lampe-salon")["couleur"] == "#FFFFFF"
+
+
+def test_couleur_retournee_invalide_par_pilote_non_persistee(service):
+    from app.domotique.service import ErreurAdaptateur
+    class AdaptateurInvalide:
+        def appliquer_etat(self, appareil_id: str, allume: bool) -> bool: return allume
+        def appliquer_luminosite(self, appareil_id: str, luminosite: int) -> int: return luminosite
+        def appliquer_temperature_couleur(self, appareil_id: str, temperature_couleur: int) -> int: return temperature_couleur
+        def appliquer_couleur(self, appareil_id: str, couleur: str) -> str: return "couleur-invalide"
+    service.adaptateur = AdaptateurInvalide()
+    with pytest.raises(ErreurAdaptateur):
+        service.regler_couleur("lampe-salon", "#00FF00")
+    assert service.obtenir("lampe-salon")["couleur"] == "#FFFFFF"
+
+
+def test_migration_couleur_rgb_preserve_les_reglages_existants(tmp_path):
+    repository = AppareilRepository(tmp_path / "domotique-test.db")
+    repository.initialiser()
+    repository.definir_couleur("lampe-salon", "#123456")
+    repository.initialiser()
+    assert repository.obtenir("lampe-salon")["couleur"] == "#123456"
+    assert repository.obtenir("ventilateur")["couleur"] is None

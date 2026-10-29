@@ -13,13 +13,14 @@ class Appareil(BaseModel):
     allume: bool
     luminosite: int | None = None
     temperature_couleur: int | None = None
+    couleur: str | None = None
     capacites: list[str] = Field(default_factory=list)
 
 
 def capacites_pour_type(type_appareil: str) -> list[str]:
     """Décrit les commandes actuellement prises en charge par chaque type."""
     if type_appareil == "lumiere":
-        return ["marche_arret", "luminosite", "temperature_couleur"]
+        return ["marche_arret", "luminosite", "temperature_couleur", "couleur"]
     if type_appareil in {"ventilation", "prise"}:
         return ["marche_arret"]
     if type_appareil == "capteur":

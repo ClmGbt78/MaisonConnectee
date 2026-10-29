@@ -1545,3 +1545,29 @@ font-size: 26px;
   color: #8290a8;
   font-size: 10px;
 }
+
+
+.domotic-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: #b9c6d9;
+  font-size: 12px;
+}
+
+.domotic-color input[type="color"] {
+  width: 52px;
+  height: 36px;
+  padding: 3px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #172033;
+  cursor: pointer;
+}
+
+.domotic-color input[type="color"]:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}

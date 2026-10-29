@@ -106,3 +106,23 @@ class AppareilService:
         if resultat is None:
             raise AppareilIntrouvable
         return self.presenter(resultat)
+
+    def regler_couleur(self, appareil_id: str, couleur: str) -> dict:
+        appareil = self.repository.obtenir(appareil_id)
+        if appareil is None:
+            raise AppareilIntrouvable
+        if "couleur" not in capacites_pour_type(appareil["type"]):
+            raise CommandeNonSupportee
+        if not isinstance(couleur, str) or len(couleur) != 7 or couleur[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in couleur[1:]):
+            raise ValueError("La couleur doit être au format hexadécimal #RRGGBB")
+        couleur = couleur.upper()
+        try:
+            valeur_confirmee = self.adaptateur.appliquer_couleur(appareil_id, couleur)
+        except Exception as erreur:
+            raise ErreurAdaptateur("Le pilote n’a pas pu appliquer la couleur") from erreur
+        if not isinstance(valeur_confirmee, str) or len(valeur_confirmee) != 7 or valeur_confirmee[0] != "#" or any(c not in "0123456789ABCDEFabcdef" for c in valeur_confirmee[1:]):
+            raise ErreurAdaptateur("Le pilote a retourné une couleur invalide")
+        resultat = self.repository.definir_couleur(appareil_id, valeur_confirmee.upper())
+        if resultat is None:
+            raise AppareilIntrouvable
+        return self.presenter(resultat)
