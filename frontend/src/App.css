@@ -1667,3 +1667,10 @@ font-size: 26px;
 }
 .automation-days input { accent-color: #65e3ce; }
 .automation-list { display: grid; gap: 10px; }
+
+
+.sensor-simulation-list { display: grid; gap: 10px; margin: 16px 0 22px; }
+.sensor-simulation-list h3 { margin: 0; }
+.sensor-control { display: grid; gap: 6px; min-width: 180px; font-size: 0.85rem; }
+.sensor-control input { width: 100%; accent-color: #65e3ce; }
+.sensor-control span { color: #aebbd0; }
