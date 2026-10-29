@@ -86,7 +86,7 @@ def test_modes_rgb_disponibles():
 
 
 def test_mutations_domotique_et_rgb_refusent_les_requetes_sans_authentification():
-    reponse_domotique = client.post(
+    reponse_ajout = client.post(
         "/api/domotique/appareils",
         json={
             "id": "test-non-authentifie",
@@ -95,9 +95,16 @@ def test_mutations_domotique_et_rgb_refusent_les_requetes_sans_authentification(
             "type": "lumiere",
         },
     )
+    reponse_suppression = client.delete("/api/domotique/appareils/lampe-salon")
+    reponse_commutation = client.patch(
+        "/api/domotique/appareils/lampe-salon",
+        json={"allume": True},
+    )
     reponse_rgb = client.post("/api/rgb/mode/rainbow")
 
-    assert reponse_domotique.status_code == 401
+    assert reponse_ajout.status_code == 401
+    assert reponse_suppression.status_code == 401
+    assert reponse_commutation.status_code == 401
     assert reponse_rgb.status_code == 401
 
 
