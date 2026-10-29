@@ -27,7 +27,7 @@ def test_initialisation_preserve_les_appareils_existants(tmp_path):
     assert lampe is not None
     assert lampe["allume"] is True
     assert lampe["luminosite"] == 42
-    assert len(repository.lister()) == 3
+    assert len(repository.lister()) == 5
 
 
 def test_lister_filtre_par_piece_et_type(service):
