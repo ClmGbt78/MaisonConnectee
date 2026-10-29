@@ -96,3 +96,20 @@ Les automatisations horaires sont exécutées localement par le backend FastAPI 
 Le moteur utilise l'heure locale de Windows et fonctionne tant que le backend est démarré. Si le PC ou le backend est arrêté à l'heure prévue, la règle est exécutée au prochain démarrage si son créneau du jour est déjà passé ; une règle ne s'exécute qu'une fois par jour. L'extinction différée est conservée et sera traitée au prochain démarrage si son échéance est dépassée.
 
 Le moteur est prévu pour l'exécution locale avec un seul processus FastAPI. Ne lance pas plusieurs workers Uvicorn, car chaque processus démarrerait son propre moteur. Les actions sont simulées par l'adaptateur actuel et n'envoient aucune commande à du matériel réel.
+
+
+## Automatisations conditionnelles et capteurs simulés
+
+Deux capteurs de démonstration sont ajoutés sans remplacer les appareils déjà présents : un capteur de luminosité et un détecteur de présence dans le salon.
+
+- **Luminosité faible** : applique une scène lorsque la mesure passe sous un seuil (en pourcentage).
+- **Présence détectée** : applique une scène lorsqu'une présence est signalée.
+- **Absence prolongée** : éteint les lumières ciblées après la durée d'absence configurée.
+- Les règles peuvent être activées, désactivées et supprimées. Un délai anti-répétition de cinq minutes évite les déclenchements en boucle.
+- La simulation des capteurs est disponible via l'interface et les routes authentifiées :
+  - `GET /api/domotique/automatisations/capteurs`
+  - `PUT /api/domotique/automatisations/capteurs/{capteur_id}/mesure` avec `{"type_mesure":"luminosite","valeur":20}` ou `{"type_mesure":"presence","valeur":1}` (0 = absence).
+  - `GET/POST /api/domotique/automatisations/conditionnelles`
+  - `PATCH/DELETE /api/domotique/automatisations/conditionnelles/{id}`
+
+Les mesures et règles sont conservées dans SQLite. Une première mesure du capteur doit être simulée avant de créer une règle, afin de vérifier que le type de mesure correspond au déclencheur. Les capteurs et actions restent simulés : aucun matériel réel n'est piloté. L'absence prolongée est calculée à partir de l'heure de la dernière mesure indiquant l'absence ; un redémarrage conserve cette date.
