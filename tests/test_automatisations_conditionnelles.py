@@ -57,8 +57,13 @@ def test_presence_declenche_scene_mais_respecte_temps_de_rearmement(tmp_path):
     })
 
     moteur.executer_conditions(maintenant)
-    moteur.executer_conditions(maintenant + timedelta(minutes=2))
     moteur.executer_conditions(maintenant + timedelta(minutes=6))
+    assert service.scenes == [("accueil", "Salon")]
+
+    repository.enregistrer_mesure("detecteur-presence-salon", "presence", 0, maintenant + timedelta(minutes=7))
+    moteur.executer_conditions(maintenant + timedelta(minutes=7))
+    repository.enregistrer_mesure("detecteur-presence-salon", "presence", 1, maintenant + timedelta(minutes=8))
+    moteur.executer_conditions(maintenant + timedelta(minutes=8))
 
     assert service.scenes == [("accueil", "Salon"), ("accueil", "Salon")]
 
