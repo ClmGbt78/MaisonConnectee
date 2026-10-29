@@ -1533,8 +1533,8 @@ function App() {
                       setAppareils((anciens) => anciens.map((element) =>
                         element.id === appareil.id ? { ...element, couleur } : element
                       ));
-                      void reglerCouleur(appareil, couleur);
                     }}
+                    onBlur={(event) => void reglerCouleur(appareil, event.currentTarget.value.toUpperCase())}
                   />
                 </div>
                 </>
