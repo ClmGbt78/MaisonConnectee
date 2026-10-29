@@ -170,6 +170,14 @@ class AutomatisationRepository:
             rows = db.execute("SELECT * FROM mesures_capteurs ORDER BY appareil_id").fetchall()
         return [dict(row) for row in rows]
 
+    def mesure(self, appareil_id: str) -> dict | None:
+        with sqlite3.connect(self.db_path) as db:
+            db.row_factory = sqlite3.Row
+            row = db.execute(
+                "SELECT * FROM mesures_capteurs WHERE appareil_id = ?", (appareil_id,)
+            ).fetchone()
+        return dict(row) if row else None
+
     def ajouter_conditionnelle(self, item: dict) -> dict:
         identifiant = str(uuid4())
         with sqlite3.connect(self.db_path) as db:
@@ -284,7 +292,7 @@ class MoteurAutomatisations:
                 declencher = valeur >= 1
             elif regle["condition"] == "absence_prolongee" and valeur < 1:
                 derniere_presence = datetime.fromisoformat(mesure["mise_a_jour"])
-                declencher = (maintenant - derniere_presence).total_seconds() >= int(regle["duree_absence"] or 0)
+                declencher = (maintenant - derniere_presence).total_seconds() >= int(regle["duree_absence"] or 0) * 60
             if not declencher:
                 self.repository.rearmer_conditionnelle(regle["id"])
                 continue
