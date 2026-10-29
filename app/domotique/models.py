@@ -11,6 +11,7 @@ class Appareil(BaseModel):
     piece: str
     type: TypeAppareil
     allume: bool
+    luminosite: int | None = None
     capacites: list[str] = Field(default_factory=list)
 
 
