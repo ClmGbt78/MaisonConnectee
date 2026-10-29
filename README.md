@@ -44,3 +44,72 @@ Ne réutilise pas la clé d'exemple en production. Ce projet reste destiné au d
   ```
 
   Ne promeus que des comptes de confiance et ne partage pas le fichier `comptes.db`.
+
+## Architecture domotique
+
+La domotique est organisée en couches pour séparer l'API, les règles métier, le stockage et les pilotes :
+
+- `app/api/domotique.py` : routes HTTP, authentification et traduction des erreurs en réponses API.
+- `app/domotique/service.py` : règles métier et validation des commandes.
+- `app/domotique/repository.py` : accès à SQLite.
+- `app/domotique/adapters/` : interface des pilotes et adaptateur de simulation local.
+- `app/domotique/models.py` : capacités exposées par type d'appareil.
+
+L'adaptateur actuel est **une simulation** : aucune commande n'est envoyée à du matériel. Les capteurs sont en lecture seule. Les lumières exposent également les capacités `luminosite` (0 à 100), `temperature_couleur` (2700 à 6500 K) et `couleur` (format hexadécimal `#RRGGBB`). La luminosité se règle via `PATCH /api/domotique/appareils/{id}/luminosite` avec le corps `{"luminosite": 65}` ; la température de couleur via `PATCH /api/domotique/appareils/{id}/temperature-couleur` avec le corps `{"temperature_couleur": 3000}`. Ces valeurs sont persistées dans SQLite. La température basse correspond à une lumière plus chaude, la température élevée à une lumière plus froide. La couleur se règle via `PATCH /api/domotique/appareils/{id}/couleur` avec le corps `{"couleur": "#FF8800"}`. La couleur RGB est persistée dans SQLite. L’adaptateur reste une simulation et n’agit sur aucun matériel réel. Les nouvelles colonnes sont ajoutées par migration additive, sans écraser les réglages existants. Les lumières déjà présentes reçoivent la couleur blanche `#FFFFFF` uniquement si aucune couleur n'est enregistrée. Les réponses des appareils incluent le champ `capacites`, et la liste peut être filtrée avec `GET /api/domotique/appareils?piece=Salon&type=lumiere`.
+
+### Données locales
+
+La domotique continue d'utiliser `systeme_historique.db`. L'initialisation crée la table si nécessaire et ajoute les appareils de démonstration uniquement s'ils n'existent pas ; elle ne supprime pas les lignes ni ne réinitialise les états existants. `comptes.db` n'est pas modifiée par cette architecture.
+
+Avant toute future évolution du schéma, fais une copie des bases locales. Ne supprime pas les fichiers SQLite pour résoudre un problème de démarrage.
+
+### Tests
+
+Les tests unitaires du dépôt et du service domotique utilisent une base SQLite temporaire :
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+
+## Scènes lumineuses
+
+Les scènes permettent d'enregistrer des ambiances nommées et de les appliquer à toutes les lumières compatibles. Chaque scène contient une luminosité (0–100), une température de couleur (2700–6500 K) et une couleur RGB au format `#RRGGBB`.
+
+Routes authentifiées :
+- `GET /api/domotique/scenes` : lister les scènes.
+- `POST /api/domotique/scenes` : créer une scène avec `nom`, `luminosite`, `temperature_couleur` et `couleur`.
+- `DELETE /api/domotique/scenes/{scene_id}` : supprimer une scène.
+- `POST /api/domotique/scenes/{scene_id}/appliquer` : appliquer les trois réglages à chaque lumière.
+
+Les scènes sont enregistrées dans une table SQLite dédiée `scenes_lumineuses`. Leur création ou suppression ne modifie pas les enregistrements des appareils. L'application d'une scène pilote les lumières l'une après l'autre ; si un pilote échoue, l'API signale une erreur et certains réglages déjà appliqués peuvent nécessiter une vérification. L'adaptateur actuel est simulé et ne commande aucun matériel réel.
+
+
+## Automatisations domotiques
+
+Les automatisations horaires sont exécutées localement par le backend FastAPI (vérification toutes les 15 secondes, selon l'heure locale de l'ordinateur). Elles restent enregistrées dans SQLite après un redémarrage.
+
+- Une règle associe une scène lumineuse, une heure, un ou plusieurs jours de la semaine et, facultativement, une pièce.
+- Une extinction différée facultative peut être ajoutée après l'application de la scène (de 1 à 1440 minutes). Elle éteint les lumières de la pièce ciblée, ou toutes les lumières si aucune pièce n'est sélectionnée.
+- Les règles peuvent être activées/désactivées ou supprimées depuis l'interface.
+- Routes authentifiées : `GET/POST /api/domotique/automatisations`, `PATCH /api/domotique/automatisations/{id}` (corps `{"active": false}`) et `DELETE /api/domotique/automatisations/{id}`.
+
+Le moteur utilise l'heure locale de Windows et fonctionne tant que le backend est démarré. Si le PC ou le backend est arrêté à l'heure prévue, la règle est exécutée au prochain démarrage si son créneau du jour est déjà passé ; une règle ne s'exécute qu'une fois par jour. L'extinction différée est conservée et sera traitée au prochain démarrage si son échéance est dépassée.
+
+Le moteur est prévu pour l'exécution locale avec un seul processus FastAPI. Ne lance pas plusieurs workers Uvicorn, car chaque processus démarrerait son propre moteur. Les actions sont simulées par l'adaptateur actuel et n'envoient aucune commande à du matériel réel.
+
+
+## Automatisations conditionnelles et capteurs simulés
+
+Deux capteurs de démonstration sont ajoutés sans remplacer les appareils déjà présents : un capteur de luminosité et un détecteur de présence dans le salon.
+
+- **Luminosité faible** : applique une scène lorsque la mesure passe sous un seuil (en pourcentage).
+- **Présence détectée** : applique une scène lorsqu'une présence est signalée.
+- **Absence prolongée** : éteint les lumières ciblées après la durée d'absence configurée.
+- Les règles peuvent être activées, désactivées et supprimées. Un délai anti-répétition de cinq minutes évite les déclenchements en boucle.
+- La simulation des capteurs est disponible via l'interface et les routes authentifiées :
+  - `GET /api/domotique/automatisations/capteurs`
+  - `PUT /api/domotique/automatisations/capteurs/{capteur_id}/mesure` avec `{"type_mesure":"luminosite","valeur":20}` ou `{"type_mesure":"presence","valeur":1}` (0 = absence).
+  - `GET/POST /api/domotique/automatisations/conditionnelles`
+  - `PATCH/DELETE /api/domotique/automatisations/conditionnelles/{id}`
+
+Les mesures et règles sont conservées dans SQLite. Une première mesure du capteur doit être simulée avant de créer une règle, afin de vérifier que le type de mesure correspond au déclencheur. Les capteurs et actions restent simulés : aucun matériel réel n'est piloté. L'absence prolongée est calculée à partir de l'heure de la dernière mesure indiquant l'absence ; un redémarrage conserve cette date.

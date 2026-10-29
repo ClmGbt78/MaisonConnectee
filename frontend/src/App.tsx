@@ -35,7 +35,34 @@ type Appareil = {
   piece: string;
   type: string;
   allume: boolean;
+  capacites?: string[];
+  luminosite?: number | null;
+  temperature_couleur?: number | null;
+  couleur?: string | null;
 };
+
+type SceneLumineuse = {
+  id: string;
+  nom: string;
+  luminosite: number;
+  temperature_couleur: number;
+  couleur: string;
+};
+
+type Automatisation = {
+  id: string; nom: string; active: boolean; heure: string; jours: number[];
+  scene_id: string; piece: string | null; extinction_minutes: number | null;
+};
+type Capteur = {
+  id: string; nom: string; piece: string;
+  mesure: { type_mesure: string; valeur: number; mise_a_jour: string } | null;
+};
+type AutomatisationConditionnelle = {
+  id: string; nom: string; active: boolean; capteur_id: string; condition: string;
+  seuil: number | null; duree_absence: number | null; scene_id: string | null; piece: string | null;
+};
+
+const JOURS_SEMAINE = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 type HistoriqueIndicateur = {
   heure_utc: string;
@@ -330,6 +357,29 @@ function App() {
   const [typeNouvelAppareil, setTypeNouvelAppareil] = useState("lumiere");
   const [ajoutEnCours, setAjoutEnCours] = useState(false);
   const [messageDomotique, setMessageDomotique] = useState("");
+  const [scenes, setScenes] = useState<SceneLumineuse[]>([]);
+  const [nomScene, setNomScene] = useState("");
+  const [luminositeScene, setLuminositeScene] = useState(70);
+  const [temperatureScene, setTemperatureScene] = useState(3000);
+  const [couleurScene, setCouleurScene] = useState("#FFB36B");
+  const [sceneEnCours, setSceneEnCours] = useState(false);
+  const [automatisations, setAutomatisations] = useState<Automatisation[]>([]);
+  const [nomAutomatisation, setNomAutomatisation] = useState("");
+  const [heureAutomatisation, setHeureAutomatisation] = useState("20:00");
+  const [joursAutomatisation, setJoursAutomatisation] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [sceneAutomatisation, setSceneAutomatisation] = useState("");
+  const [pieceAutomatisation, setPieceAutomatisation] = useState("");
+  const [extinctionAutomatisation, setExtinctionAutomatisation] = useState("");
+  const [automatisationEnCours, setAutomatisationEnCours] = useState(false);
+  const [capteurs, setCapteurs] = useState<Capteur[]>([]);
+  const [conditions, setConditions] = useState<AutomatisationConditionnelle[]>([]);
+  const [nomCondition, setNomCondition] = useState("");
+  const [capteurCondition, setCapteurCondition] = useState("");
+  const [typeCondition, setTypeCondition] = useState("luminosite_inferieure");
+  const [seuilCondition, setSeuilCondition] = useState(30);
+  const [dureeAbsenceCondition, setDureeAbsenceCondition] = useState(15);
+  const [sceneCondition, setSceneCondition] = useState("");
+  const [pieceCondition, setPieceCondition] = useState("");
 
   async function chargerAppareils() {
     try {
@@ -364,6 +414,220 @@ function App() {
       window.clearInterval(intervalle);
     };
   }, [utilisateurConnecte]);
+
+
+  async function chargerScenes() {
+    try {
+      const response = await apiFetch("/api/domotique/scenes");
+      if (!response.ok) throw new Error("Impossible de charger les scènes");
+      setScenes(await response.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les scènes lumineuses.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    const timeout = window.setTimeout(() => void chargerScenes(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [utilisateurConnecte]);
+
+  async function creerScene(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSceneEnCours(true);
+    setMessageDomotique("");
+    try {
+      const response = await apiFetch("/api/domotique/scenes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: nomScene.trim(), luminosite: luminositeScene, temperature_couleur: temperatureScene, couleur: couleurScene }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible d'enregistrer la scène.");
+      setScenes((anciennes) => [...anciennes.filter((scene) => scene.id !== data.id), data]);
+      setNomScene("");
+      setMessageDomotique("Scène lumineuse enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur lors de l'enregistrement.");
+    } finally { setSceneEnCours(false); }
+  }
+
+  async function appliquerScene(scene: SceneLumineuse) {
+    setSceneEnCours(true);
+    setMessageDomotique("");
+    try {
+      const response = await apiFetch(`/api/domotique/scenes/${encodeURIComponent(scene.id)}/appliquer`, { method: "POST" });
+      const data: Appareil[] = await response.json();
+      if (!response.ok) throw new Error((data as unknown as {detail?: string}).detail || "Impossible d'appliquer la scène.");
+      setAppareils((anciennes) => anciennes.map((appareil) => data.find((maj) => maj.id === appareil.id) ?? appareil));
+      setMessageDomotique(`Ambiance « ${scene.nom} » appliquée.`);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur lors de l'application de la scène.");
+      void chargerAppareils();
+    } finally { setSceneEnCours(false); }
+  }
+
+  async function supprimerScene(scene: SceneLumineuse) {
+    if (!window.confirm(`Supprimer la scène « ${scene.nom} » ?`)) return;
+    setSceneEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/scenes/${encodeURIComponent(scene.id)}`, { method: "DELETE" });
+      if (!response.ok) { const data = await response.json(); throw new Error(data.detail || "Impossible de supprimer la scène."); }
+      setScenes((anciennes) => anciennes.filter((element) => element.id !== scene.id));
+      setMessageDomotique("Scène supprimée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally { setSceneEnCours(false); }
+  }
+
+  async function chargerAutomatisations() {
+    try {
+      const response = await apiFetch("/api/domotique/automatisations");
+      if (!response.ok) throw new Error("Chargement impossible");
+      setAutomatisations(await response.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les automatisations.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    const timeout = window.setTimeout(() => void chargerAutomatisations(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [utilisateurConnecte]);
+
+  async function creerAutomatisation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!sceneAutomatisation || joursAutomatisation.length === 0) return;
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch("/api/domotique/automatisations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: nomAutomatisation.trim(), heure: heureAutomatisation,
+          jours: joursAutomatisation, scene_id: sceneAutomatisation,
+          piece: pieceAutomatisation || null,
+          extinction_minutes: extinctionAutomatisation ? Number(extinctionAutomatisation) : null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Création impossible.");
+      setAutomatisations((items) => [...items, data].sort((a, b) => a.heure.localeCompare(b.heure)));
+      setNomAutomatisation("");
+      setMessageDomotique("Automatisation enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de création.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function basculerAutomatisation(item: Automatisation) {
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/${item.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !item.active }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Modification impossible.");
+      setAutomatisations((items) => items.map((current) => current.id === item.id ? data : current));
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de modification.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function supprimerAutomatisation(item: Automatisation) {
+    if (!window.confirm(`Supprimer l'automatisation « ${item.nom} » ?`)) return;
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/${item.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Suppression impossible.");
+      setAutomatisations((items) => items.filter((current) => current.id !== item.id));
+      setMessageDomotique("Automatisation supprimée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function chargerCapteursEtConditions() {
+    try {
+      const [capteursResponse, conditionsResponse] = await Promise.all([
+        apiFetch("/api/domotique/automatisations/capteurs"),
+        apiFetch("/api/domotique/automatisations/conditionnelles"),
+      ]);
+      if (!capteursResponse.ok || !conditionsResponse.ok) throw new Error("Chargement impossible");
+      setCapteurs(await capteursResponse.json());
+      setConditions(await conditionsResponse.json());
+    } catch {
+      setMessageDomotique("Impossible de charger les capteurs et automatisations conditionnelles.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    const timeout = window.setTimeout(() => void chargerCapteursEtConditions(), 0);
+    const interval = window.setInterval(() => void chargerCapteursEtConditions(), 5000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [utilisateurConnecte]);
+
+  async function simulerCapteur(capteur: Capteur, type_mesure: "luminosite" | "presence", valeur: number) {
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/capteurs/${encodeURIComponent(capteur.id)}/mesure`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type_mesure, valeur }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Mise à jour du capteur impossible.");
+      setCapteurs((items) => items.map((item) => item.id === capteur.id ? { ...item, mesure: data } : item));
+      setMessageDomotique("Valeur de capteur simulée enregistrée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de simulation.");
+    }
+  }
+
+  async function creerConditionnelle(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAutomatisationEnCours(true);
+    try {
+      const response = await apiFetch("/api/domotique/automatisations/conditionnelles", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: nomCondition.trim(), capteur_id: capteurCondition, condition: typeCondition,
+          seuil: typeCondition === "luminosite_inferieure" ? seuilCondition : null,
+          duree_absence: typeCondition === "absence_prolongee" ? dureeAbsenceCondition : null,
+          scene_id: typeCondition === "absence_prolongee" ? null : sceneCondition,
+          piece: pieceCondition || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Création impossible.");
+      setConditions((items) => [...items, data]);
+      setNomCondition("");
+      setMessageDomotique("Automatisation conditionnelle créée.");
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de création.");
+    } finally { setAutomatisationEnCours(false); }
+  }
+
+  async function basculerConditionnelle(item: AutomatisationConditionnelle) {
+    const response = await apiFetch(`/api/domotique/automatisations/conditionnelles/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !item.active }),
+    });
+    const data = await response.json();
+    if (response.ok) setConditions((items) => items.map((current) => current.id === item.id ? data : current));
+    else setMessageDomotique(data.detail || "Modification impossible.");
+  }
+
+  async function supprimerConditionnelle(item: AutomatisationConditionnelle) {
+    if (!window.confirm(`Supprimer la règle « ${item.nom} » ?`)) return;
+    const response = await apiFetch(`/api/domotique/automatisations/conditionnelles/${item.id}`, { method: "DELETE" });
+    if (response.ok) setConditions((items) => items.filter((current) => current.id !== item.id));
+    else setMessageDomotique("Suppression impossible.");
+  }
 
   async function basculerAppareil(appareil: Appareil) {
     if (appareilsEnCours.includes(appareil.id)) {
@@ -407,6 +671,91 @@ function App() {
       setAppareilsEnCours((anciens) =>
         anciens.filter((id) => id !== appareil.id)
       );
+    }
+  }
+
+  async function reglerLuminosite(appareil: Appareil, luminosite: number) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/luminosite`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ luminosite }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la luminosité.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la luminosité.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
+    }
+  }
+
+  async function reglerTemperatureCouleur(appareil: Appareil, temperature_couleur: number) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/temperature-couleur`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ temperature_couleur }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la température de couleur.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la température de couleur.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
+    }
+  }
+
+
+  async function reglerCouleur(appareil: Appareil, couleur: string) {
+    if (appareilsEnCours.includes(appareil.id)) return;
+    setAppareilsEnCours((anciens) => [...anciens, appareil.id]);
+    try {
+      const response = await apiFetch(
+        `/api/domotique/appareils/${encodeURIComponent(appareil.id)}/couleur`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ couleur }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de régler la couleur.");
+      const appareilMisAJour: Appareil = data;
+      setAppareils((anciens) => anciens.map((element) =>
+        element.id === appareilMisAJour.id ? appareilMisAJour : element
+      ));
+      setErreurDomotique(false);
+    } catch (erreur) {
+      setMessageDomotique(erreur instanceof Error ? erreur.message : "Erreur de réglage de la couleur.");
+      setErreurDomotique(true);
+      void chargerAppareils();
+    } finally {
+      setAppareilsEnCours((anciens) => anciens.filter((id) => id !== appareil.id));
     }
   }
 
@@ -1288,6 +1637,158 @@ function App() {
             </p>
           )}
 
+
+          <section className="scenes-panel">
+            <div className="section-heading">
+              <div><h2>Scènes lumineuses</h2><p>Enregistre et applique tes ambiances à toutes les lumières</p></div>
+              <span className="module-count">{scenes.length} SCÈNES</span>
+            </div>
+            <form className="scene-form" onSubmit={creerScene}>
+              <label htmlFor="nom-scene">Nom de l'ambiance</label>
+              <input id="nom-scene" value={nomScene} onChange={(event) => setNomScene(event.target.value)} placeholder="Ex. : Soirée détente" required maxLength={80} />
+              <label htmlFor="luminosite-scene">Luminosité : {luminositeScene} %</label>
+              <input id="luminosite-scene" type="range" min="0" max="100" value={luminositeScene} onChange={(event) => setLuminositeScene(Number(event.target.value))} />
+              <label htmlFor="temperature-scene">Température : {temperatureScene} K</label>
+              <input id="temperature-scene" type="range" min="2700" max="6500" step="100" value={temperatureScene} onChange={(event) => setTemperatureScene(Number(event.target.value))} />
+              <label htmlFor="couleur-scene">Couleur RGB</label>
+              <input id="couleur-scene" type="color" value={couleurScene} onChange={(event) => setCouleurScene(event.target.value.toUpperCase())} />
+              <button type="submit" disabled={sceneEnCours || !nomScene.trim()}>{sceneEnCours ? "En cours…" : "Enregistrer la scène"}</button>
+            </form>
+            <div className="scene-list">
+              {scenes.map((scene) => (
+                <article className="scene-card" key={scene.id}>
+                  <span className="scene-swatch" style={{ backgroundColor: scene.couleur }} />
+                  <div className="scene-details"><strong>{scene.nom}</strong><span>{scene.luminosite} % · {scene.temperature_couleur} K · {scene.couleur}</span></div>
+                  <button type="button" onClick={() => void appliquerScene(scene)} disabled={sceneEnCours}>Appliquer</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerScene(scene)} disabled={sceneEnCours} aria-label={`Supprimer ${scene.nom}`}>Supprimer</button>
+                </article>
+              ))}
+              {scenes.length === 0 && <p className="metric-detail">Aucune scène enregistrée pour le moment.</p>}
+            </div>
+            {messageDomotique && <p role="status" className="scene-message">{messageDomotique}</p>}
+          </section>
+
+          <section className="scenes-panel automation-panel">
+            <div className="section-heading">
+              <div><h2>Automatisations horaires</h2><p>Déclenche une scène à l'heure choisie, pour toute la maison ou une pièce</p></div>
+              <span className="module-count">{automatisations.length} RÈGLES</span>
+            </div>
+            <form className="scene-form" onSubmit={creerAutomatisation}>
+              <label htmlFor="nom-automation">Nom de la règle</label>
+              <input id="nom-automation" value={nomAutomatisation} onChange={(event) => setNomAutomatisation(event.target.value)} placeholder="Ex. : Ambiance du soir" required maxLength={80} />
+              <label htmlFor="heure-automation">Heure de déclenchement (heure locale du PC)</label>
+              <input id="heure-automation" type="time" value={heureAutomatisation} onChange={(event) => setHeureAutomatisation(event.target.value)} required />
+              <label>Jours d'activation</label>
+              <div className="automation-days">
+                {JOURS_SEMAINE.map((jour, index) => (
+                  <label key={jour}><input type="checkbox" checked={joursAutomatisation.includes(index + 1)} onChange={(event) => setJoursAutomatisation((jours) => event.target.checked ? [...jours, index + 1].sort() : jours.filter((value) => value !== index + 1))} />{jour}</label>
+                ))}
+              </div>
+              <label htmlFor="scene-automation">Scène à appliquer</label>
+              <select id="scene-automation" value={sceneAutomatisation} onChange={(event) => setSceneAutomatisation(event.target.value)} required>
+                <option value="">Choisir une scène</option>
+                {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.nom}</option>)}
+              </select>
+              <label htmlFor="piece-automation">Pièce ciblée (facultatif)</label>
+              <select id="piece-automation" value={pieceAutomatisation} onChange={(event) => setPieceAutomatisation(event.target.value)}>
+                <option value="">Toutes les pièces</option>
+                {[...new Set(appareils.filter((appareil) => appareil.type === "lumiere").map((appareil) => appareil.piece))].sort().map((piece) => <option key={piece} value={piece}>{piece}</option>)}
+              </select>
+              <label htmlFor="extinction-automation">Éteindre automatiquement après (minutes, facultatif)</label>
+              <input id="extinction-automation" type="number" min="1" max="1440" value={extinctionAutomatisation} onChange={(event) => setExtinctionAutomatisation(event.target.value)} placeholder="Ex. : 90" />
+              <button type="submit" disabled={automatisationEnCours || !nomAutomatisation.trim() || !sceneAutomatisation || joursAutomatisation.length === 0 || scenes.length === 0}>{automatisationEnCours ? "En cours…" : "Créer l'automatisation"}</button>
+            </form>
+            <div className="automation-list">
+              {automatisations.map((item) => (
+                <article className="scene-card" key={item.id}>
+                  <div className="scene-details">
+                    <strong>{item.nom} · {item.heure}</strong>
+                    <span>{item.jours.map((jour) => JOURS_SEMAINE[jour - 1]).join(", ")} · {scenes.find((scene) => scene.id === item.scene_id)?.nom ?? "Scène"} · {item.piece || "Toutes les pièces"}{item.extinction_minutes ? ` · Extinction après ${item.extinction_minutes} min` : ""}</span>
+                  </div>
+                  <button type="button" className={item.active ? "" : "scene-delete"} onClick={() => void basculerAutomatisation(item)} disabled={automatisationEnCours}>{item.active ? "Activée" : "Désactivée"}</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerAutomatisation(item)} disabled={automatisationEnCours}>Supprimer</button>
+                </article>
+              ))}
+              {automatisations.length === 0 && <p className="metric-detail">Aucune automatisation configurée.</p>}
+            </div>
+          </section>
+
+          <section className="scenes-panel automation-panel">
+            <div className="section-heading">
+              <div><h2>Automatisations conditionnelles</h2><p>Déclenche une scène selon la luminosité ou la présence détectée</p></div>
+              <span className="module-count">{conditions.length} RÈGLES</span>
+            </div>
+            <div className="sensor-simulation-list">
+              <h3>Capteurs simulés</h3>
+              {capteurs.map((capteur) => (
+                <article className="scene-card" key={capteur.id}>
+                  <div className="scene-details"><strong>{capteur.nom} · {capteur.piece}</strong>
+                    <span>{capteur.mesure ? `${capteur.mesure.type_mesure} : ${capteur.mesure.valeur} · actualisé ${new Date(capteur.mesure.mise_a_jour).toLocaleTimeString("fr-FR")}` : "Aucune mesure reçue"}</span>
+                  </div>
+                  {capteur.id.includes("luminosite") ? (
+                    <label className="sensor-control">Luminosité simulée
+                      <input type="range" min="0" max="100" value={capteur.mesure?.valeur ?? 80} onChange={(event) => void simulerCapteur(capteur, "luminosite", Number(event.target.value))} />
+                      <span>{capteur.mesure?.valeur ?? 80} %</span>
+                    </label>
+                  ) : (
+                    <button type="button" onClick={() => void simulerCapteur(capteur, "presence", capteur.mesure?.valeur ? 0 : 1)}>
+                      {capteur.mesure?.valeur ? "Simuler une absence" : "Simuler une présence"}
+                    </button>
+                  )}
+                </article>
+              ))}
+              {capteurs.length === 0 && <p className="metric-detail">Ajoute un appareil de type capteur pour commencer.</p>}
+            </div>
+            <form className="scene-form" onSubmit={creerConditionnelle}>
+              <label htmlFor="nom-condition">Nom de la règle</label>
+              <input id="nom-condition" value={nomCondition} onChange={(event) => setNomCondition(event.target.value)} placeholder="Ex. : Éclairage à la tombée du jour" required maxLength={80} />
+              <label htmlFor="type-condition">Déclencheur</label>
+              <select id="type-condition" value={typeCondition} onChange={(event) => setTypeCondition(event.target.value)}>
+                <option value="luminosite_inferieure">Luminosité inférieure au seuil</option>
+                <option value="presence_detectee">Présence détectée</option>
+                <option value="absence_prolongee">Absence prolongée</option>
+              </select>
+              <label htmlFor="capteur-condition">Capteur</label>
+              <select id="capteur-condition" value={capteurCondition} onChange={(event) => setCapteurCondition(event.target.value)} required>
+                <option value="">Choisir un capteur</option>
+                {capteurs.filter((capteur) => typeCondition === "luminosite_inferieure" ? capteur.id.includes("luminosite") : capteur.id.includes("presence")).map((capteur) => <option key={capteur.id} value={capteur.id}>{capteur.nom} · {capteur.piece}</option>)}
+              </select>
+              {typeCondition === "luminosite_inferieure" && <>
+                <label htmlFor="seuil-condition">Seuil de luminosité (%)</label>
+                <input id="seuil-condition" type="number" min="0" max="100" value={seuilCondition} onChange={(event) => setSeuilCondition(Number(event.target.value))} />
+              </>}
+              {typeCondition === "absence_prolongee" && <>
+                <label htmlFor="duree-absence">Durée d'absence (minutes)</label>
+                <input id="duree-absence" type="number" min="1" max="1440" value={dureeAbsenceCondition} onChange={(event) => setDureeAbsenceCondition(Number(event.target.value))} />
+              </>}
+              {typeCondition !== "absence_prolongee" && <>
+                <label htmlFor="scene-condition">Scène à appliquer</label>
+                <select id="scene-condition" value={sceneCondition} onChange={(event) => setSceneCondition(event.target.value)} required>
+                  <option value="">Choisir une scène</option>
+                  {scenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.nom}</option>)}
+                </select>
+              </>}
+              <label htmlFor="piece-condition">Pièce ciblée (facultatif)</label>
+              <select id="piece-condition" value={pieceCondition} onChange={(event) => setPieceCondition(event.target.value)}>
+                <option value="">Toutes les pièces</option>
+                {[...new Set(appareils.filter((appareil) => appareil.type === "lumiere").map((appareil) => appareil.piece))].sort().map((piece) => <option key={piece} value={piece}>{piece}</option>)}
+              </select>
+              <button type="submit" disabled={automatisationEnCours || !nomCondition.trim() || !capteurCondition || (typeCondition !== "absence_prolongee" && (!sceneCondition || scenes.length === 0))}>Créer la règle conditionnelle</button>
+            </form>
+            <div className="automation-list">
+              {conditions.map((item) => (
+                <article className="scene-card" key={item.id}>
+                  <div className="scene-details"><strong>{item.nom}</strong>
+                    <span>{item.condition === "luminosite_inferieure" ? `Luminosité sous ${item.seuil}%` : item.condition === "presence_detectee" ? "Présence détectée" : `Absence de ${item.duree_absence} min`} · {capteurs.find((capteur) => capteur.id === item.capteur_id)?.nom ?? item.capteur_id} · {item.piece || "Toutes les pièces"}</span>
+                  </div>
+                  <button type="button" className={item.active ? "" : "scene-delete"} onClick={() => void basculerConditionnelle(item)}>{item.active ? "Activée" : "Désactivée"}</button>
+                  <button type="button" className="scene-delete" onClick={() => void supprimerConditionnelle(item)}>Supprimer</button>
+                </article>
+              ))}
+              {conditions.length === 0 && <p className="metric-detail">Aucune règle conditionnelle.</p>}
+            </div>
+          </section>
+
           {utilisateurConnecte.role === "admin" && (
             <form className="domotic-form" onSubmit={ajouterAppareil}>
               <h3>Ajouter un appareil</h3>
@@ -1351,36 +1852,127 @@ function App() {
 
                 <span
                   className={
-                    appareil.allume
+                    appareil.type !== "capteur" && appareil.allume
                       ? "domotic-status on"
                       : "domotic-status"
                   }
                 >
-                  {appareil.allume ? "Allumé" : "Éteint"}
+                  {appareil.type === "capteur"
+                    ? "Lecture seule"
+                    : appareil.allume ? "Allumé" : "Éteint"}
                 </span>
               </div>
 
               <h3>{appareil.nom}</h3>
               <p className="domotic-room">{appareil.piece}</p>
 
-              <div className="domotic-card-bottom">
-                <span>Alimentation</span>
+              {appareil.type === "lumiere" && appareil.capacites?.includes("luminosite") && (
+                <>
+                <div className="domotic-brightness">
+                  <label htmlFor={`luminosite-${appareil.id}`}>
+                    Luminosité : {appareil.luminosite ?? 100}%
+                  </label>
+                  <input
+                    id={`luminosite-${appareil.id}`}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={appareil.luminosite ?? 100}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Luminosité : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const luminosite = Number(event.target.value);
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, luminosite } : element
+                      ));
+                    }}
+                    onPointerUp={(event) =>
+                      void reglerLuminosite(appareil, Number(event.currentTarget.value))
+                    }
+                    onKeyUp={(event) => {
+                      if (event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") {
+                        void reglerLuminosite(appareil, Number(event.currentTarget.value));
+                      }
+                    }}
+                  />
+                </div>
+                <div className="domotic-temperature">
+                  <label htmlFor={`temperature-${appareil.id}`}>
+                    Température de couleur : {appareil.temperature_couleur ?? 4000} K
+                  </label>
+                  <input
+                    id={`temperature-${appareil.id}`}
+                    type="range"
+                    min={2700}
+                    max={6500}
+                    step={100}
+                    value={appareil.temperature_couleur ?? 4000}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Température de couleur : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const temperature_couleur = Number(event.target.value);
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, temperature_couleur } : element
+                      ));
+                    }}
+                    onPointerUp={(event) =>
+                      void reglerTemperatureCouleur(appareil, Number(event.currentTarget.value))
+                    }
+                    onKeyUp={(event) => {
+                      if (event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") {
+                        void reglerTemperatureCouleur(appareil, Number(event.currentTarget.value));
+                      }
+                    }}
+                  />
+                  <div className="domotic-temperature-labels" aria-hidden="true">
+                    <span>Chaud</span><span>Froid</span>
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  className={
-                    appareil.allume
-                      ? "toggle-switch on"
-                      : "toggle-switch"
-                  }
-                  role="switch"
-                  aria-checked={appareil.allume}
-                  aria-label={`Alimentation : ${appareil.nom}`}
-                  disabled={appareilsEnCours.includes(appareil.id)}
-                  onClick={() => void basculerAppareil(appareil)}
-                >
-                  <span className="toggle-knob" />
-                </button>
+                <div className="domotic-color">
+                  <label htmlFor={`couleur-${appareil.id}`}>
+                    Couleur RGB : {appareil.couleur ?? "#FFFFFF"}
+                  </label>
+                  <input
+                    id={`couleur-${appareil.id}`}
+                    type="color"
+                    value={appareil.couleur ?? "#FFFFFF"}
+                    disabled={appareilsEnCours.includes(appareil.id)}
+                    aria-label={`Couleur RGB : ${appareil.nom}`}
+                    onChange={(event) => {
+                      const couleur = event.target.value.toUpperCase();
+                      setAppareils((anciens) => anciens.map((element) =>
+                        element.id === appareil.id ? { ...element, couleur } : element
+                      ));
+                    }}
+                    onBlur={(event) => void reglerCouleur(appareil, event.currentTarget.value.toUpperCase())}
+                  />
+                </div>
+                </>
+              )}
+
+              <div className="domotic-card-bottom">
+                <span>{appareil.type === "capteur" ? "Capteur" : "Alimentation"}</span>
+
+                {appareil.type !== "capteur" &&
+                  (appareil.capacites?.includes("marche_arret") ?? true) && (
+                    <button
+                      type="button"
+                      className={
+                        appareil.allume
+                          ? "toggle-switch on"
+                          : "toggle-switch"
+                      }
+                      role="switch"
+                      aria-checked={appareil.allume}
+                      aria-label={`Alimentation : ${appareil.nom}`}
+                      disabled={appareilsEnCours.includes(appareil.id)}
+                      onClick={() => void basculerAppareil(appareil)}
+                    >
+                      <span className="toggle-knob" />
+                    </button>
+                  )}
               </div>
 
               {utilisateurConnecte.role === "admin" && (

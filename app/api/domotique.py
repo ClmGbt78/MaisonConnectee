@@ -1,73 +1,80 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+import re
 import sqlite3
-from pathlib import Path
+from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import get_current_user, require_admin
-from pydantic import BaseModel
-
-router = APIRouter(
-    prefix="/domotique",
-    tags=["Domotique"],
+from app.domotique.adapters.simulation import AdaptateurSimulation
+from app.domotique.repository import AppareilRepository
+from app.domotique.service import (
+    AppareilIntrouvable,
+    AppareilService,
+    CommandeNonSupportee,
+    ErreurAdaptateur,
+    TypeAppareilInvalide,
 )
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DB_PATH = BASE_DIR / "systeme_historique.db"
+router = APIRouter(prefix="/domotique", tags=["Domotique"])
 
-
-def initialiser_base_domotique():
-    with sqlite3.connect(DB_PATH) as connexion:
-        connexion.execute("""
-            CREATE TABLE IF NOT EXISTS appareils_domotiques (
-                id TEXT PRIMARY KEY,
-                nom TEXT NOT NULL,
-                piece TEXT NOT NULL,
-                type TEXT NOT NULL,
-                allume INTEGER NOT NULL DEFAULT 0
-            )
-        """)
-
-        appareils_initiaux = [
-            ("lampe-salon", "Lampe du salon", "Salon", "lumiere", 0),
-            ("ventilateur", "Ventilateur", "Chambre", "ventilation", 0),
-            ("prise-bureau", "Prise du bureau", "Bureau", "prise", 0),
-        ]
-
-        connexion.executemany("""
-            INSERT OR IGNORE INTO appareils_domotiques
-                (id, nom, piece, type, allume)
-            VALUES (?, ?, ?, ?, ?)
-        """, appareils_initiaux)
-
-
-initialiser_base_domotique()
+# Même fichier SQLite que la version précédente : aucune migration destructive.
+repository = AppareilRepository()
+repository.initialiser()
+service = AppareilService(repository, AdaptateurSimulation())
 
 
 class CommandeAppareil(BaseModel):
     allume: bool
 
-class NouvelAppareil(BaseModel):
-    id: str
-    nom: str
-    piece: str
-    type: str
 
-def convertir_appareil(ligne):
-    appareil = dict(ligne)
-    appareil["allume"] = bool(appareil["allume"])
-    return appareil
+class ReglageLuminosite(BaseModel):
+    luminosite: int = Field(ge=0, le=100)
+
+
+class ReglageTemperatureCouleur(BaseModel):
+    temperature_couleur: int = Field(ge=2700, le=6500)
+
+
+class ReglageCouleur(BaseModel):
+    couleur: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class SceneLumineuse(BaseModel):
+    nom: str = Field(min_length=1, max_length=80)
+    luminosite: int = Field(ge=0, le=100)
+    temperature_couleur: int = Field(ge=2700, le=6500)
+    couleur: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class NouvelAppareil(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    nom: str = Field(min_length=1, max_length=120)
+    piece: str = Field(min_length=1, max_length=100)
+    type: str = Field(min_length=1, max_length=40)
+
+
+def _normaliser_appareil(appareil: NouvelAppareil) -> dict:
+    return {
+        "id": appareil.id.strip(),
+        "nom": appareil.nom.strip(),
+        "piece": appareil.piece.strip(),
+        "type": appareil.type.strip().lower(),
+    }
+
+
+def _erreur_introuvable() -> HTTPException:
+    return HTTPException(status_code=404, detail="Appareil introuvable")
+
 
 @router.get("/appareils")
-def obtenir_appareils(utilisateur_connecte: dict = Depends(get_current_user)):
-    with sqlite3.connect(DB_PATH) as connexion:
-        connexion.row_factory = sqlite3.Row
-
-        lignes = connexion.execute("""
-            SELECT id, nom, piece, type, allume
-            FROM appareils_domotiques
-            ORDER BY id
-        """).fetchall()
-
-    return [convertir_appareil(ligne) for ligne in lignes]
+def obtenir_appareils(
+    piece: str | None = Query(default=None, max_length=100),
+    type: str | None = Query(default=None, max_length=40),
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    return service.lister(
+        piece=piece.strip() if piece and piece.strip() else None,
+        type_appareil=type.strip().lower() if type and type.strip() else None,
+    )
 
 
 @router.post("/appareils", status_code=201)
@@ -75,86 +82,44 @@ def ajouter_appareil(
     nouvel_appareil: NouvelAppareil,
     utilisateur_connecte: dict = Depends(require_admin),
 ):
-    appareil_id = nouvel_appareil.id.strip()
-    nom = nouvel_appareil.nom.strip()
-    piece = nouvel_appareil.piece.strip()
-    type_appareil = nouvel_appareil.type.strip().lower()
-
-    if not appareil_id or not nom or not piece:
+    donnees = _normaliser_appareil(nouvel_appareil)
+    if not donnees["id"] or not donnees["nom"] or not donnees["piece"]:
         raise HTTPException(
             status_code=422,
             detail="L'identifiant, le nom et la pièce sont obligatoires",
         )
-
-    types_autorises = {"lumiere", "ventilation", "prise", "capteur"}
-
-    if type_appareil not in types_autorises:
+    try:
+        return service.ajouter(donnees)
+    except TypeAppareilInvalide:
         raise HTTPException(
             status_code=422,
             detail="Type invalide. Types autorisés : lumiere, ventilation, prise, capteur",
         )
+    except ValueError as erreur:
+        raise HTTPException(status_code=409, detail=str(erreur)) from erreur
 
-    try:
-        with sqlite3.connect(DB_PATH) as connexion:
-            connexion.execute("""
-                INSERT INTO appareils_domotiques
-                    (id, nom, piece, type, allume)
-                VALUES (?, ?, ?, ?, 0)
-            """, (appareil_id, nom, piece, type_appareil))
-    except sqlite3.IntegrityError:
-        raise HTTPException(
-            status_code=409,
-            detail="Un appareil avec cet identifiant existe déjà",
-        )
-
-    return {
-        "id": appareil_id,
-        "nom": nom,
-        "piece": piece,
-        "type": type_appareil,
-        "allume": False,
-    }
 
 @router.delete("/appareils/{appareil_id}", status_code=204)
 def supprimer_appareil(
     appareil_id: str,
     utilisateur_connecte: dict = Depends(require_admin),
 ):
-    with sqlite3.connect(DB_PATH) as connexion:
-        curseur = connexion.execute("""
-            DELETE FROM appareils_domotiques
-            WHERE id = ?
-        """, (appareil_id,))
+    try:
+        service.supprimer(appareil_id)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    return Response(status_code=204)
 
-        if curseur.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Appareil introuvable",
-            )
-
-    return
 
 @router.get("/appareils/{appareil_id}")
 def obtenir_appareil(
     appareil_id: str,
     utilisateur_connecte: dict = Depends(get_current_user),
 ):
-    with sqlite3.connect(DB_PATH) as connexion:
-        connexion.row_factory = sqlite3.Row
-
-        ligne = connexion.execute("""
-            SELECT id, nom, piece, type, allume
-            FROM appareils_domotiques
-            WHERE id = ?
-        """, (appareil_id,)).fetchone()
-
-    if ligne is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Appareil introuvable",
-        )
-
-    return convertir_appareil(ligne)
+    try:
+        return service.obtenir(appareil_id)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
 
 
 @router.patch("/appareils/{appareil_id}")
@@ -163,25 +128,137 @@ def modifier_appareil(
     commande: CommandeAppareil,
     utilisateur_connecte: dict = Depends(get_current_user),
 ):
-    with sqlite3.connect(DB_PATH) as connexion:
-        curseur = connexion.execute("""
-            UPDATE appareils_domotiques
-            SET allume = ?
-            WHERE id = ?
-        """, (int(commande.allume), appareil_id))
+    try:
+        return service.commander(appareil_id, commande.allume)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="Cet appareil est en lecture seule et ne peut pas être commandé",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la commande",
+        )
 
-        if curseur.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Appareil introuvable",
-            )
 
-        connexion.row_factory = sqlite3.Row
+@router.patch("/appareils/{appareil_id}/luminosite")
+def regler_luminosite(
+    appareil_id: str,
+    reglage: ReglageLuminosite,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_luminosite(appareil_id, reglage.luminosite)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La luminosité n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la luminosité",
+        )
 
-        ligne = connexion.execute("""
-            SELECT id, nom, piece, type, allume
-            FROM appareils_domotiques
-            WHERE id = ?
-        """, (appareil_id,)).fetchone()
 
-    return convertir_appareil(ligne)
+@router.patch("/appareils/{appareil_id}/temperature-couleur")
+def regler_temperature_couleur(
+    appareil_id: str,
+    reglage: ReglageTemperatureCouleur,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_temperature_couleur(appareil_id, reglage.temperature_couleur)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La température de couleur n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la température de couleur",
+        )
+
+
+@router.patch("/appareils/{appareil_id}/couleur")
+def regler_couleur(
+    appareil_id: str,
+    reglage: ReglageCouleur,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_couleur(appareil_id, reglage.couleur)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La couleur RGB n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la couleur",
+        )
+
+
+@router.get("/scenes")
+def lister_scenes(utilisateur_connecte: dict = Depends(get_current_user)):
+    return repository.lister_scenes()
+
+
+@router.post("/scenes", status_code=201)
+def creer_scene(
+    scene: SceneLumineuse,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    nom = scene.nom.strip()
+    if not nom:
+        raise HTTPException(status_code=422, detail="Le nom de la scène est obligatoire")
+    identifiant = re.sub(r"[^a-z0-9]+", "-", nom.lower()).strip("-")
+    if not identifiant:
+        raise HTTPException(status_code=422, detail="Nom de scène invalide")
+    donnees = {
+        "id": identifiant,
+        "nom": nom,
+        "luminosite": scene.luminosite,
+        "temperature_couleur": scene.temperature_couleur,
+        "couleur": scene.couleur.upper(),
+    }
+    try:
+        return repository.ajouter_scene(donnees)
+    except sqlite3.IntegrityError as erreur:
+        raise HTTPException(status_code=409, detail="Une scène portant ce nom existe déjà") from erreur
+
+
+@router.delete("/scenes/{scene_id}", status_code=204)
+def supprimer_scene(
+    scene_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    if not repository.supprimer_scene(scene_id):
+        raise HTTPException(status_code=404, detail="Scène lumineuse introuvable")
+    return Response(status_code=204)
+
+
+@router.post("/scenes/{scene_id}/appliquer")
+def appliquer_scene(
+    scene_id: str,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.appliquer_scene(scene_id)
+    except AppareilIntrouvable:
+        raise HTTPException(status_code=404, detail="Scène lumineuse introuvable")
+    except CommandeNonSupportee:
+        raise HTTPException(status_code=409, detail="Aucune lumière n’est disponible")
+    except ErreurAdaptateur:
+        raise HTTPException(status_code=503, detail="Le pilote n’a pas pu appliquer complètement la scène")
