@@ -28,6 +28,10 @@ class ReglageLuminosite(BaseModel):
     luminosite: int = Field(ge=0, le=100)
 
 
+class ReglageTemperatureCouleur(BaseModel):
+    temperature_couleur: int = Field(ge=2700, le=6500)
+
+
 class NouvelAppareil(BaseModel):
     id: str = Field(min_length=1, max_length=100)
     nom: str = Field(min_length=1, max_length=120)
@@ -146,4 +150,26 @@ def regler_luminosite(
         raise HTTPException(
             status_code=503,
             detail="Le pilote domotique n’a pas pu appliquer la luminosité",
+        )
+
+
+@router.patch("/appareils/{appareil_id}/temperature-couleur")
+def regler_temperature_couleur(
+    appareil_id: str,
+    reglage: ReglageTemperatureCouleur,
+    utilisateur_connecte: dict = Depends(get_current_user),
+):
+    try:
+        return service.regler_temperature_couleur(appareil_id, reglage.temperature_couleur)
+    except AppareilIntrouvable:
+        raise _erreur_introuvable()
+    except CommandeNonSupportee:
+        raise HTTPException(
+            status_code=409,
+            detail="La température de couleur n’est pas prise en charge par cet appareil",
+        )
+    except ErreurAdaptateur:
+        raise HTTPException(
+            status_code=503,
+            detail="Le pilote domotique n’a pas pu appliquer la température de couleur",
         )
