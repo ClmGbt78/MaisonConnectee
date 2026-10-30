@@ -2305,7 +2305,7 @@ function App() {
               <div><h2>Vue interactive de la maison</h2><p>Explore le volume, règle la caméra et prépare la construction de ton plan réel.</p></div>
               <span className="module-count">APERÇU 3D</span>
             </div>
-            <Plan3D />
+            <Plan3D role={utilisateurConnecte.role} />
           </section>
         )}
 
