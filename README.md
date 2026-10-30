@@ -199,3 +199,14 @@ La géométrie des pièces accepte désormais des ouvertures persistées dans la
 ## Plan 3D : murs mitoyens
 
 Le rendu détecte les murs opposés qui partagent exactement la même ligne et les mêmes limites, au même étage et avec la même hauteur. Un seul mur est alors dessiné pour éviter les doublons ; les portes et fenêtres déclarées sur chacun des deux côtés sont conservées dans la découpe. Cette déduplication ne fusionne pas encore les murs partiellement superposés, les murs de longueurs différentes ni les raccords en angle. Les géométries et ouvertures restent stockées dans leurs tables SQLite existantes : aucune migration ni réinitialisation de données n'est nécessaire.
+
+
+## Plan 3D : finitions des portes et fenêtres
+
+Les ouvertures disposent maintenant d'un habillage visuel schématique dans le rendu 3D :
+- cadres périphériques pour les portes et fenêtres ;
+- vantaux de porte représentés entrouverts avec une poignée ;
+- vitrages translucides et montant central pour les fenêtres ;
+- couleurs adaptées à l'ambiance jour/nuit.
+
+Ces éléments sont générés à partir des ouvertures déjà enregistrées. Aucun nouveau champ SQLite, aucune migration et aucune modification des données existantes ne sont nécessaires. Le sens et l'angle d'ouverture des portes restent pour l'instant illustratifs et ne sont pas configurables.
