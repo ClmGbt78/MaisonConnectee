@@ -29,6 +29,8 @@ type SystemMetrics = {
   heure_utc: string;
 };
 
+type PieceMaison = { id: string; nom: string; description: string; couleur: string; nombre_appareils: number };
+
 type Appareil = {
   id: string;
   nom: string;
@@ -364,6 +366,13 @@ function App() {
   }, [utilisateurConnecte]);
 
   const [appareils, setAppareils] = useState<Appareil[]>([]);
+  const [pieces, setPieces] = useState<PieceMaison[]>([]);
+  const [nomNouvellePiece, setNomNouvellePiece] = useState("");
+  const [descriptionNouvellePiece, setDescriptionNouvellePiece] = useState("");
+  const [couleurNouvellePiece, setCouleurNouvellePiece] = useState("#365B78");
+  const [brouillonsPieces, setBrouillonsPieces] = useState<Record<string, { nom: string; description: string; couleur: string }>>({});
+  const [pieceEnCours, setPieceEnCours] = useState<string | null>(null);
+  const [erreurPieces, setErreurPieces] = useState("");
   const [erreurDomotique, setErreurDomotique] = useState(false);
   const [appareilsEnCours, setAppareilsEnCours] = useState<string[]>([]);
   const [nomNouvelAppareil, setNomNouvelAppareil] = useState("");
@@ -418,6 +427,90 @@ function App() {
     } catch {
       setErreurDomotique(true);
     }
+  }
+
+  async function chargerPieces() {
+    try {
+      const response = await apiFetch("/api/domotique/pieces");
+      if (!response.ok) throw new Error("Impossible de charger les pièces.");
+      const data: PieceMaison[] = await response.json();
+      setPieces(data);
+      setBrouillonsPieces((anciens) => {
+        const suivants = { ...anciens };
+        data.forEach((piece) => {
+          if (!suivants[piece.id]) suivants[piece.id] = { nom: piece.nom, description: piece.description, couleur: piece.couleur };
+        });
+        Object.keys(suivants).forEach((id) => { if (!data.some((piece) => piece.id === id)) delete suivants[id]; });
+        return suivants;
+      });
+      setErreurPieces("");
+    } catch (erreur) {
+      setErreurPieces(erreur instanceof Error ? erreur.message : "Erreur de chargement des pièces.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    const timeout = window.setTimeout(() => void chargerPieces(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [utilisateurConnecte]);
+
+  async function creerPiece(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPieceEnCours("nouvelle");
+    setErreurPieces("");
+    try {
+      const response = await apiFetch("/api/domotique/pieces", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: nomNouvellePiece.trim(), description: descriptionNouvellePiece.trim(), couleur: couleurNouvellePiece }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de créer la pièce.");
+      setPieces((items) => [...items, data].sort((a, b) => a.nom.localeCompare(b.nom, "fr")));
+      setBrouillonsPieces((items) => ({ ...items, [data.id]: { nom: data.nom, description: data.description, couleur: data.couleur } }));
+      setNomNouvellePiece("");
+      setDescriptionNouvellePiece("");
+      setMessageDomotique("Pièce créée.");
+    } catch (erreur) {
+      setErreurPieces(erreur instanceof Error ? erreur.message : "Erreur de création.");
+    } finally { setPieceEnCours(null); }
+  }
+
+  async function enregistrerPiece(piece: PieceMaison) {
+    const brouillon = brouillonsPieces[piece.id] ?? { nom: piece.nom, description: piece.description, couleur: piece.couleur };
+    setPieceEnCours(piece.id);
+    setErreurPieces("");
+    try {
+      const response = await apiFetch(`/api/domotique/pieces/${encodeURIComponent(piece.id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: brouillon.nom.trim(), description: brouillon.description.trim(), couleur: brouillon.couleur }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Impossible de modifier la pièce.");
+      setPieces((items) => items.map((item) => item.id === piece.id ? data : item).sort((a, b) => a.nom.localeCompare(b.nom, "fr")));
+      setBrouillonsPieces((items) => ({ ...items, [piece.id]: { nom: data.nom, description: data.description, couleur: data.couleur } }));
+      await chargerAppareils();
+      setMessageDomotique("Pièce mise à jour.");
+    } catch (erreur) {
+      setErreurPieces(erreur instanceof Error ? erreur.message : "Erreur de modification.");
+    } finally { setPieceEnCours(null); }
+  }
+
+  async function supprimerPiece(piece: PieceMaison) {
+    if (!window.confirm(`Supprimer la pièce « ${piece.nom} » ?`)) return;
+    setPieceEnCours(piece.id);
+    setErreurPieces("");
+    try {
+      const response = await apiFetch(`/api/domotique/pieces/${encodeURIComponent(piece.id)}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Impossible de supprimer la pièce.");
+      }
+      setPieces((items) => items.filter((item) => item.id !== piece.id));
+      setMessageDomotique("Pièce supprimée.");
+    } catch (erreur) {
+      setErreurPieces(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally { setPieceEnCours(null); }
   }
 
   useEffect(() => {
@@ -1737,6 +1830,58 @@ function App() {
             </p>
           )}
 
+
+          <section className="scenes-panel rooms-panel">
+            <div className="section-heading">
+              <div><h2>Pièces de la maison</h2><p>Crée et personnalise les espaces qui composeront ton futur plan 3D</p></div>
+              <span className="module-count">{pieces.length} PIÈCES</span>
+            </div>
+            {utilisateurConnecte.role === "admin" && (
+              <form className="scene-form room-create-form" onSubmit={creerPiece}>
+                <label htmlFor="nom-nouvelle-piece">Nom de la pièce</label>
+                <input id="nom-nouvelle-piece" value={nomNouvellePiece} onChange={(event) => setNomNouvellePiece(event.target.value)} placeholder="Ex. : Cuisine" maxLength={60} required />
+                <label htmlFor="description-nouvelle-piece">Description (facultative)</label>
+                <input id="description-nouvelle-piece" value={descriptionNouvellePiece} onChange={(event) => setDescriptionNouvellePiece(event.target.value)} placeholder="Ex. : Cuisine ouverte sur le séjour" maxLength={240} />
+                <label htmlFor="couleur-nouvelle-piece">Couleur de la pièce</label>
+                <input id="couleur-nouvelle-piece" type="color" value={couleurNouvellePiece} onChange={(event) => setCouleurNouvellePiece(event.target.value.toUpperCase())} />
+                <button type="submit" disabled={pieceEnCours !== null || !nomNouvellePiece.trim()}>Créer la pièce</button>
+              </form>
+            )}
+            {erreurPieces && <p className="sensor-serial-error" role="alert">{erreurPieces}</p>}
+            <div className="room-list">
+              {pieces.map((piece) => {
+                const brouillon = brouillonsPieces[piece.id] ?? { nom: piece.nom, description: piece.description, couleur: piece.couleur };
+                return (
+                  <form className="room-card" key={piece.id} onSubmit={(event) => { event.preventDefault(); void enregistrerPiece(piece); }}>
+                    <span className="room-color" style={{ backgroundColor: brouillon.couleur }} />
+                    <div className="room-fields">
+                      {utilisateurConnecte.role === "admin" ? (
+                        <>
+                          <label>Nom<input value={brouillon.nom} maxLength={60} onChange={(event) => setBrouillonsPieces((items) => ({ ...items, [piece.id]: { ...brouillon, nom: event.target.value } }))} required /></label>
+                          <label>Description<input value={brouillon.description} maxLength={240} onChange={(event) => setBrouillonsPieces((items) => ({ ...items, [piece.id]: { ...brouillon, description: event.target.value } }))} /></label>
+                          <label>Couleur<input type="color" value={brouillon.couleur} onChange={(event) => setBrouillonsPieces((items) => ({ ...items, [piece.id]: { ...brouillon, couleur: event.target.value.toUpperCase() } }))} /></label>
+                        </>
+                      ) : (
+                        <>
+                          <strong>{piece.nom}</strong>
+                          <span>{piece.description || "Aucune description"}</span>
+                        </>
+                      )}
+                      <span>{piece.nombre_appareils} appareil{piece.nombre_appareils > 1 ? "s" : ""}</span>
+                    </div>
+                    {utilisateurConnecte.role === "admin" && (
+                      <div className="room-actions">
+                        <button type="submit" disabled={pieceEnCours !== null}>Enregistrer</button>
+                        <button type="button" className="scene-delete" disabled={pieceEnCours !== null || piece.nombre_appareils > 0} title={piece.nombre_appareils > 0 ? "Déplace les appareils avant de supprimer cette pièce" : "Supprimer la pièce"} onClick={() => void supprimerPiece(piece)}>Supprimer</button>
+                      </div>
+                    )}
+                  </form>
+                );
+              })}
+              {pieces.length === 0 && <p className="metric-detail">Aucune pièce enregistrée.</p>}
+            </div>
+            <p className="metric-detail">Les pièces déjà présentes ont été reprises automatiquement depuis tes appareils. Renommer une pièce met également à jour les appareils qui lui sont associés. Une pièce contenant des appareils ne peut pas être supprimée.</p>
+          </section>
 
           <section className="scenes-panel">
             <div className="section-heading">
