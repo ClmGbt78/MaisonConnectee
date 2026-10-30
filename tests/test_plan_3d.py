@@ -45,3 +45,40 @@ def test_piece_inexistante_non_enregistrable(plan):
         "position_x": 0, "position_z": 0, "largeur": 4,
         "profondeur": 3, "hauteur": 2.7, "etage": 0,
     }) is None
+
+
+def test_ajouter_modifier_et_supprimer_une_ouverture(plan):
+    piece = plan.lister()[0]
+    ouverture = plan.ajouter_ouverture(piece["id"], {
+        "type": "fenetre", "mur": "nord", "position": 0,
+        "largeur": 1.2, "hauteur": 1.1, "hauteur_appui": 0.9,
+    })
+    assert ouverture["type"] == "fenetre"
+    assert plan.lister()[0]["ouvertures"][0]["id"] == ouverture["id"]
+
+    modifiee = plan.modifier_ouverture(piece["id"], ouverture["id"], {
+        "type": "porte", "mur": "est", "position": 0.2,
+        "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0,
+    })
+    assert modifiee["type"] == "porte"
+    assert modifiee["mur"] == "est"
+    assert plan.supprimer_ouverture(piece["id"], ouverture["id"])
+    assert plan.lister()[0]["ouvertures"] == []
+
+
+def test_ouverture_hors_des_limites_du_mur_refusee(plan):
+    piece = plan.lister()[0]
+    with pytest.raises(ValueError, match="trop large"):
+        plan.ajouter_ouverture(piece["id"], {
+            "type": "porte", "mur": "nord", "position": 0,
+            "largeur": 10, "hauteur": 2.1, "hauteur_appui": 0,
+        })
+
+
+def test_porte_avec_appui_refusee(plan):
+    piece = plan.lister()[0]
+    with pytest.raises(ValueError, match="niveau du sol"):
+        plan.ajouter_ouverture(piece["id"], {
+            "type": "porte", "mur": "nord", "position": 0,
+            "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0.2,
+        })
