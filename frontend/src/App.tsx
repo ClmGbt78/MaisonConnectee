@@ -1003,6 +1003,7 @@ function App() {
       }
 
       await chargerAppareils();
+      await chargerPieces();
 
       setNomNouvelAppareil("");
       setPieceNouvelAppareil("");
@@ -1048,6 +1049,7 @@ function App() {
       setAppareils((anciens) =>
         anciens.filter((element) => element.id !== appareil.id)
       );
+      await chargerPieces();
 
       setMessageDomotique(`« ${appareil.nom} » a été supprimé.`);
       setErreurDomotique(false);
