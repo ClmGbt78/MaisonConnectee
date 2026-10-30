@@ -34,11 +34,12 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
-function MurAvecOuvertures({ piece, mur, ouvertures, materiau }: {
+function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit }: {
   piece: PiecePlan;
   mur: Ouverture["mur"];
   ouvertures: Ouverture[];
   materiau: { color: string; transparent: boolean; opacity: number; roughness: number; depthWrite: boolean };
+  nuit: boolean;
 }) {
   const longueur = mur === "nord" || mur === "sud" ? piece.largeur : piece.profondeur;
   const geometry = useMemo(() => {
@@ -69,10 +70,64 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau }: {
     0,
     mur === "sud" ? piece.profondeur / 2 : mur === "nord" ? -piece.profondeur / 2 : 0,
   ];
-  return <mesh position={position} rotation={[0, rotation, 0]} castShadow receiveShadow>
-    <primitive object={geometry} attach="geometry" />
-    <meshStandardMaterial {...materiau} side={2} />
-  </mesh>;
+  return <group position={position} rotation={[0, rotation, 0]}>
+    <mesh castShadow receiveShadow>
+      <primitive object={geometry} attach="geometry" />
+      <meshStandardMaterial {...materiau} side={2} />
+    </mesh>
+    {ouvertures.map((ouverture) => {
+      const fenetre = ouverture.type === "fenetre";
+      const largeurCadre = 0.055;
+      const profondeurCadre = 0.055;
+      const hauteurCadre = 0.055;
+      const largeurInterieure = Math.max(0.05, ouverture.largeur - largeurCadre * 2);
+      const hauteurInterieure = Math.max(0.05, ouverture.hauteur - hauteurCadre * 2);
+      const materiauCadre = nuit ? "#c3cedb" : "#f8fafc";
+      return (
+        <group key={ouverture.id} position={[ouverture.position, ouverture.hauteur_appui, 0.075]}>
+          <mesh position={[-ouverture.largeur / 2 + largeurCadre / 2, ouverture.hauteur / 2, 0]} castShadow>
+            <boxGeometry args={[largeurCadre, ouverture.hauteur, profondeurCadre]} />
+            <meshStandardMaterial color={materiauCadre} roughness={0.55} />
+          </mesh>
+          <mesh position={[ouverture.largeur / 2 - largeurCadre / 2, ouverture.hauteur / 2, 0]} castShadow>
+            <boxGeometry args={[largeurCadre, ouverture.hauteur, profondeurCadre]} />
+            <meshStandardMaterial color={materiauCadre} roughness={0.55} />
+          </mesh>
+          <mesh position={[0, ouverture.hauteur - hauteurCadre / 2, 0]}>
+            <boxGeometry args={[ouverture.largeur, hauteurCadre, profondeurCadre]} />
+            <meshStandardMaterial color={materiauCadre} roughness={0.55} />
+          </mesh>
+          {fenetre ? (
+            <>
+              <mesh position={[0, ouverture.hauteur / 2, -0.006]}>
+                <boxGeometry args={[largeurInterieure, hauteurInterieure, 0.025]} />
+                <meshPhysicalMaterial color={nuit ? "#72a9d4" : "#9bd8f5"} transparent opacity={0.48} roughness={0.12} metalness={0.08} />
+              </mesh>
+              <mesh position={[0, ouverture.hauteur_appui === 0 ? 0.035 : 0, 0]}>
+                <boxGeometry args={[ouverture.largeur, hauteurCadre, profondeurCadre]} />
+                <meshStandardMaterial color={materiauCadre} roughness={0.55} />
+              </mesh>
+              <mesh position={[0, ouverture.hauteur / 2, 0.012]}>
+                <boxGeometry args={[0.035, hauteurInterieure, 0.035]} />
+                <meshStandardMaterial color={materiauCadre} roughness={0.55} />
+              </mesh>
+            </>
+          ) : (
+            <group position={[-ouverture.largeur / 2 + largeurCadre, 0, 0.025]} rotation={[0, -0.22, 0]}>
+              <mesh position={[largeurInterieure / 2, ouverture.hauteur / 2, 0]} castShadow>
+                <boxGeometry args={[largeurInterieure, hauteurInterieure, 0.035]} />
+                <meshStandardMaterial color={nuit ? "#795b43" : "#9b704e"} roughness={0.72} />
+              </mesh>
+              <mesh position={[largeurInterieure * 0.72, ouverture.hauteur / 2, 0.021]}>
+                <sphereGeometry args={[0.035, 10, 8]} />
+                <meshStandardMaterial color={nuit ? "#d6dce4" : "#d2a84b"} metalness={0.65} roughness={0.3} />
+              </mesh>
+            </group>
+          )}
+        </group>
+      );
+    })}
+  </group>;
 }
 
 function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PiecePlan[]) {
@@ -122,7 +177,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit }: { piece: PiecePlan; pi
         const ouverturesVoisin = voisin
           ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
           : [];
-        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} />;
+        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} />;
       })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
@@ -326,7 +381,7 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les murs sont actuellement représentés en périphérie de chaque pièce ; portes, fenêtres et murs mitoyens seront affinés dans une étape dédiée.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques ; les dimensions et positions doivent être ajustées pour reproduire le logement.</p>
     </div>
   );
 }
