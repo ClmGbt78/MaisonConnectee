@@ -18,7 +18,7 @@ type PiecePlan = {
   ouvertures: Ouverture[];
 };
 
-type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number };
+type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number; sens_ouverture: "gauche" | "droite"; angle_ouverture: number };
 type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
@@ -113,7 +113,7 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit }: {
               </mesh>
             </>
           ) : (
-            <group position={[-ouverture.largeur / 2 + largeurCadre, 0, 0.025]} rotation={[0, -0.22, 0]}>
+            <group position={[ouverture.sens_ouverture === "gauche" ? -ouverture.largeur / 2 + largeurCadre : ouverture.largeur / 2 - largeurCadre, 0, 0.025]} rotation={[0, (ouverture.sens_ouverture === "gauche" ? -1 : 1) * ouverture.angle_ouverture * Math.PI / 180, 0]} scale={[ouverture.sens_ouverture === "gauche" ? 1 : -1, 1, 1]}>
               <mesh position={[largeurInterieure / 2, ouverture.hauteur / 2, 0]} castShadow>
                 <boxGeometry args={[largeurInterieure, hauteurInterieure, 0.035]} />
                 <meshStandardMaterial color={nuit ? "#795b43" : "#9b704e"} roughness={0.72} />
@@ -190,7 +190,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [pieces, setPieces] = useState<PiecePlan[]>([]);
   const [selection, setSelection] = useState("");
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
-  const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 });
+  const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
   const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
   const [etageAffiche, setEtageAffiche] = useState("0");
   const [transparence, setTransparence] = useState(82);
@@ -292,7 +292,7 @@ export default function Plan3D({ role }: { role: string }) {
 
   const editerOuverture = (ouverture: Ouverture) => {
     setOuvertureEditionId(ouverture.id);
-    setOuvertureBrouillon({ type: ouverture.type, mur: ouverture.mur, position: ouverture.position, largeur: ouverture.largeur, hauteur: ouverture.hauteur, hauteur_appui: ouverture.hauteur_appui });
+    setOuvertureBrouillon({ type: ouverture.type, mur: ouverture.mur, position: ouverture.position, largeur: ouverture.largeur, hauteur: ouverture.hauteur, hauteur_appui: ouverture.hauteur_appui, sens_ouverture: ouverture.sens_ouverture ?? "gauche", angle_ouverture: ouverture.angle_ouverture ?? 90 });
   };
 
   const supprimerOuverture = async (ouverture: Ouverture) => {
@@ -354,11 +354,12 @@ export default function Plan3D({ role }: { role: string }) {
                     <button type="button" onClick={() => void supprimerOuverture(ouverture)}>Supprimer</button>
                   </div>)}
                   <div className="plan3d-opening-form">
-                    <label>Type<select value={ouvertureBrouillon.type} onChange={(event) => { const type = event.target.value as BrouillonOuverture["type"]; setOuvertureBrouillon((ancien) => ({ ...ancien, type, hauteur: type === "porte" ? 2.1 : 1.2, hauteur_appui: type === "porte" ? 0 : 0.9 })); }}><option value="porte">Porte</option><option value="fenetre">Fenêtre</option></select></label>
+                    <label>Type<select value={ouvertureBrouillon.type} onChange={(event) => { const type = event.target.value as BrouillonOuverture["type"]; setOuvertureBrouillon((ancien) => ({ ...ancien, type, hauteur: type === "porte" ? 2.1 : 1.2, hauteur_appui: type === "porte" ? 0 : 0.9, sens_ouverture: "gauche", angle_ouverture: 90 })); }}><option value="porte">Porte</option><option value="fenetre">Fenêtre</option></select></label>
                     <label>Mur<select value={ouvertureBrouillon.mur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, mur: event.target.value as BrouillonOuverture["mur"] }))}><option value="nord">Nord</option><option value="sud">Sud</option><option value="est">Est</option><option value="ouest">Ouest</option></select></label>
                     <label>Position sur le mur (m)<input type="number" step="0.1" min="-15" max="15" value={ouvertureBrouillon.position} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, position: Number(event.target.value) }))} /></label>
                     <label>Largeur (m)<input type="number" min="0.4" max="8" step="0.1" value={ouvertureBrouillon.largeur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, largeur: Number(event.target.value) }))} /></label>
                     <label>Hauteur (m)<input type="number" min="0.4" max="4" step="0.1" value={ouvertureBrouillon.hauteur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur: Number(event.target.value) }))} /></label>
+                    {ouvertureBrouillon.type === "porte" && <><label>Sens d'ouverture<select value={ouvertureBrouillon.sens_ouverture} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, sens_ouverture: event.target.value as "gauche" | "droite" }))}><option value="gauche">Gauche</option><option value="droite">Droite</option></select></label><label>Angle d'ouverture<select value={ouvertureBrouillon.angle_ouverture} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, angle_ouverture: Number(event.target.value) }))}><option value={0}>Fermée (0°)</option><option value={45}>45°</option><option value={90}>90°</option><option value={120}>120°</option><option value={150}>150°</option></select></label></>}
                     <label>Hauteur d'appui (m)<input type="number" min="0" max="3" step="0.1" disabled={ouvertureBrouillon.type === "porte"} value={ouvertureBrouillon.hauteur_appui} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur_appui: Number(event.target.value) }))} /></label>
                     <button type="button" onClick={() => void enregistrerOuverture()}>{ouvertureEditionId === null ? "Ajouter l'ouverture" : "Enregistrer l'ouverture"}</button>
                     {ouvertureEditionId !== null && <button type="button" onClick={() => { setOuvertureEditionId(null); setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 }); }}>Annuler</button>}
