@@ -183,8 +183,7 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
-  const enregistrerOuverture = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const enregistrerOuverture = async () => {
     if (!pieceSelectionnee) return;
     setErreur("");
     try {
@@ -263,16 +262,16 @@ export default function Plan3D({ role }: { role: string }) {
                     <button type="button" onClick={() => editerOuverture(ouverture)}>Modifier</button>
                     <button type="button" onClick={() => void supprimerOuverture(ouverture)}>Supprimer</button>
                   </div>)}
-                  <form className="plan3d-opening-form" onSubmit={enregistrerOuverture}>
+                  <div className="plan3d-opening-form">
                     <label>Type<select value={ouvertureBrouillon.type} onChange={(event) => { const type = event.target.value as BrouillonOuverture["type"]; setOuvertureBrouillon((ancien) => ({ ...ancien, type, hauteur: type === "porte" ? 2.1 : 1.2, hauteur_appui: type === "porte" ? 0 : 0.9 })); }}><option value="porte">Porte</option><option value="fenetre">Fenêtre</option></select></label>
                     <label>Mur<select value={ouvertureBrouillon.mur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, mur: event.target.value as BrouillonOuverture["mur"] }))}><option value="nord">Nord</option><option value="sud">Sud</option><option value="est">Est</option><option value="ouest">Ouest</option></select></label>
                     <label>Position sur le mur (m)<input type="number" step="0.1" min="-15" max="15" value={ouvertureBrouillon.position} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, position: Number(event.target.value) }))} /></label>
                     <label>Largeur (m)<input type="number" min="0.4" max="8" step="0.1" value={ouvertureBrouillon.largeur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, largeur: Number(event.target.value) }))} /></label>
                     <label>Hauteur (m)<input type="number" min="0.4" max="4" step="0.1" value={ouvertureBrouillon.hauteur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur: Number(event.target.value) }))} /></label>
                     <label>Hauteur d'appui (m)<input type="number" min="0" max="3" step="0.1" disabled={ouvertureBrouillon.type === "porte"} value={ouvertureBrouillon.hauteur_appui} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur_appui: Number(event.target.value) }))} /></label>
-                    <button type="submit">{ouvertureEditionId === null ? "Ajouter l'ouverture" : "Enregistrer l'ouverture"}</button>
+                    <button type="button" onClick={() => void enregistrerOuverture()}>{ouvertureEditionId === null ? "Ajouter l'ouverture" : "Enregistrer l'ouverture"}</button>
                     {ouvertureEditionId !== null && <button type="button" onClick={() => { setOuvertureEditionId(null); setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 }); }}>Annuler</button>}
-                  </form>
+                  </div>
                 </section>
               </form>
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
