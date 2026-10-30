@@ -94,6 +94,15 @@ class PiecesRepository:
                     "UPDATE appareils_domotiques SET piece = ? WHERE piece = ? COLLATE NOCASE",
                     (nom, ancien_nom),
                 )
+                for table in ("automatisations", "automatisations_conditionnelles", "extinctions_differees"):
+                    existe = connexion.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+                    ).fetchone()
+                    if existe:
+                        connexion.execute(
+                            f"UPDATE {table} SET piece = ? WHERE piece = ? COLLATE NOCASE",
+                            (nom, ancien_nom),
+                        )
         return self.obtenir(piece_id)
 
     def supprimer(self, piece_id: str) -> str | None:
@@ -111,5 +120,16 @@ class PiecesRepository:
             ).fetchone()
             if utilisee:
                 raise ValueError("Cette pièce contient encore des appareils. Déplace-les avant de la supprimer.")
+            for table in ("automatisations", "automatisations_conditionnelles", "extinctions_differees"):
+                existe = connexion.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+                ).fetchone()
+                if existe:
+                    reference = connexion.execute(
+                        f"SELECT 1 FROM {table} WHERE piece = ? COLLATE NOCASE LIMIT 1",
+                        (piece["nom"],),
+                    ).fetchone()
+                    if reference:
+                        raise ValueError("Cette pièce est encore utilisée par une automatisation.")
             connexion.execute("DELETE FROM pieces_domotiques WHERE id = ?", (piece_id,))
             return piece["nom"]
