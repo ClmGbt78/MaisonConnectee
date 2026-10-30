@@ -42,6 +42,8 @@ class OuverturePiece(BaseModel):
     largeur: float = Field(ge=0.4, le=8)
     hauteur: float = Field(ge=0.4, le=4)
     hauteur_appui: float = Field(default=0, ge=0, le=3)
+    sens_ouverture: str = Field(default="gauche", pattern=r"^(gauche|droite)$")
+    angle_ouverture: int = Field(default=90, ge=0, le=150)
 
 
 @router.post("/{piece_id}/ouvertures", status_code=201)
