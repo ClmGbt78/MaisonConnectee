@@ -75,7 +75,39 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau }: {
   </mesh>;
 }
 
-function SolEtMurs({ piece, transparence, nuit }: { piece: PiecePlan; transparence: number; nuit: boolean }) {
+function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PiecePlan[]) {
+  const horizontal = mur === "nord" || mur === "sud";
+  const oppose: Record<Ouverture["mur"], Ouverture["mur"]> = {
+    nord: "sud", sud: "nord", est: "ouest", ouest: "est",
+  };
+  const bord = mur === "nord"
+    ? piece.position_z - piece.profondeur / 2
+    : mur === "sud"
+      ? piece.position_z + piece.profondeur / 2
+      : mur === "ouest"
+        ? piece.position_x - piece.largeur / 2
+        : piece.position_x + piece.largeur / 2;
+  const debut = horizontal ? piece.position_x - piece.largeur / 2 : piece.position_z - piece.profondeur / 2;
+  const fin = horizontal ? piece.position_x + piece.largeur / 2 : piece.position_z + piece.profondeur / 2;
+  const epsilon = 0.015;
+  return pieces.find((autre) => {
+    if (autre.id === piece.id || autre.etage !== piece.etage || Math.abs(autre.hauteur - piece.hauteur) > epsilon) return false;
+    const autreBord = mur === "nord"
+      ? autre.position_z + autre.profondeur / 2
+      : mur === "sud"
+        ? autre.position_z - autre.profondeur / 2
+        : mur === "ouest"
+          ? autre.position_x + autre.largeur / 2
+          : autre.position_x - autre.largeur / 2;
+    const autreDebut = horizontal ? autre.position_x - autre.largeur / 2 : autre.position_z - autre.profondeur / 2;
+    const autreFin = horizontal ? autre.position_x + autre.largeur / 2 : autre.position_z + autre.profondeur / 2;
+    return Math.abs(bord - autreBord) <= epsilon
+      && Math.abs(debut - autreDebut) <= epsilon
+      && Math.abs(fin - autreFin) <= epsilon;
+  });
+}
+
+function SolEtMurs({ piece, pieces, transparence, nuit }: { piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean }) {
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
@@ -85,9 +117,16 @@ function SolEtMurs({ piece, transparence, nuit }: { piece: PiecePlan; transparen
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
       </mesh>
-      {(["nord", "sud", "est", "ouest"] as const).map((mur) => (
-        <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={ouvertures.filter((ouverture) => ouverture.mur === mur)} materiau={materiauMur} />
-      ))}
+      {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
+        const voisin = mursCoincidents(piece, mur, pieces);
+        if (voisin && piece.id.localeCompare(voisin.id) > 0) return null;
+        const oppose: Record<Ouverture["mur"], Ouverture["mur"]> = { nord: "sud", sud: "nord", est: "ouest", ouest: "est" };
+        const ouverturesMur = ouvertures.filter((ouverture) => ouverture.mur === mur);
+        const ouverturesVoisin = voisin
+          ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
+          : [];
+        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} />;
+      })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
       </Html>
@@ -282,7 +321,7 @@ export default function Plan3D({ role }: { role: string }) {
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.7 : 2} castShadow />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} transparence={transparence} nuit={nuit} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
