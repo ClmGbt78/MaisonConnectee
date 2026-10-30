@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import { apiFetch } from "../api";
@@ -103,7 +103,7 @@ export default function Plan3D({ role }: { role: string }) {
     setMessage("");
   };
 
-  const enregistrer = async (event: React.FormEvent<HTMLFormElement>) => {
+  const enregistrer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!pieceSelectionnee || !brouillon) return;
     setEnregistrement(true);
