@@ -68,15 +68,27 @@ export default function Plan3D({ role }: { role: string }) {
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
 
+  const creerBrouillon = (piece: PiecePlan | undefined): Brouillon | null => piece ? ({
+    position_x: piece.position_x,
+    position_z: piece.position_z,
+    largeur: piece.largeur,
+    profondeur: piece.profondeur,
+    hauteur: piece.hauteur,
+    etage: piece.etage,
+  }) : null;
+
   const charger = useCallback(async () => {
-    setChargement(true);
-    setErreur("");
     try {
       const response = await apiFetch("/api/domotique/plan-3d");
       if (!response.ok) throw new Error("Impossible de charger la géométrie des pièces.");
       const donnees: PiecePlan[] = await response.json();
       setPieces(donnees);
-      setSelection((ancienne) => donnees.some((piece) => piece.id === ancienne) ? ancienne : donnees[0]?.id ?? "");
+      setSelection((ancienne) => {
+        const id = donnees.some((piece) => piece.id === ancienne) ? ancienne : donnees[0]?.id ?? "";
+        setBrouillon(creerBrouillon(donnees.find((piece) => piece.id === id)));
+        return id;
+      });
+      setErreur("");
     } catch (error) {
       setErreur(error instanceof Error ? error.message : "Erreur de chargement du plan.");
     } finally {
@@ -85,18 +97,6 @@ export default function Plan3D({ role }: { role: string }) {
   }, []);
 
   useEffect(() => { void charger(); }, [charger]);
-
-  useEffect(() => {
-    if (!pieceSelectionnee) { setBrouillon(null); return; }
-    setBrouillon({
-      position_x: pieceSelectionnee.position_x,
-      position_z: pieceSelectionnee.position_z,
-      largeur: pieceSelectionnee.largeur,
-      profondeur: pieceSelectionnee.profondeur,
-      hauteur: pieceSelectionnee.hauteur,
-      etage: pieceSelectionnee.etage,
-    });
-  }, [pieceSelectionnee]);
 
   const modifier = (champ: keyof Brouillon, valeur: number) => {
     setBrouillon((ancien) => ancien ? { ...ancien, [champ]: valeur } : ancien);
@@ -158,7 +158,7 @@ export default function Plan3D({ role }: { role: string }) {
           <div className="plan3d-editor">
             {role === "admin" ? (
               <form className="plan3d-room-form" onSubmit={enregistrer}>
-                <label>Pièce à modifier<select value={selection} onChange={(event) => setSelection(event.target.value)}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
+                <label>Pièce à modifier<select value={selection} onChange={(event) => { const id = event.target.value; setSelection(id); setBrouillon(creerBrouillon(pieces.find((piece) => piece.id === id))); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
                 {brouillon && <>
                   <label>Position X (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_x} onChange={(event) => modifier("position_x", Number(event.target.value))} /></label>
                   <label>Position Z (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_z} onChange={(event) => modifier("position_z", Number(event.target.value))} /></label>
