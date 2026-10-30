@@ -82,3 +82,27 @@ def test_porte_avec_appui_refusee(plan):
             "type": "porte", "mur": "nord", "position": 0,
             "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0.2,
         })
+
+
+def test_anciennes_ouvertures_recoivent_des_valeurs_par_defaut(plan):
+    piece = plan.lister()[0]
+    ouverture = plan.ajouter_ouverture(piece["id"], {
+        "type": "porte", "mur": "nord", "position": 0,
+        "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0,
+    })
+    assert ouverture["sens_ouverture"] == "gauche"
+    assert ouverture["angle_ouverture"] == 90
+
+
+def test_configuration_sens_et_angle_porte_persiste(plan):
+    piece = plan.lister()[0]
+    ouverture = plan.ajouter_ouverture(piece["id"], {
+        "type": "porte", "mur": "nord", "position": 0,
+        "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0,
+        "sens_ouverture": "droite", "angle_ouverture": 120,
+    })
+    assert ouverture["sens_ouverture"] == "droite"
+    assert ouverture["angle_ouverture"] == 120
+    rechargee = plan.lister()[0]["ouvertures"][0]
+    assert rechargee["sens_ouverture"] == "droite"
+    assert rechargee["angle_ouverture"] == 120
