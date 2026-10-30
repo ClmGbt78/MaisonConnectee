@@ -36,9 +36,16 @@ class Plan3DRepository:
                     largeur REAL NOT NULL,
                     hauteur REAL NOT NULL,
                     hauteur_appui REAL NOT NULL DEFAULT 0,
+                    sens_ouverture TEXT NOT NULL DEFAULT 'gauche',
+                    angle_ouverture INTEGER NOT NULL DEFAULT 90,
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
                 )
             """)
+            colonnes = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(ouvertures_pieces_3d)")}
+            if "sens_ouverture" not in colonnes:
+                connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN sens_ouverture TEXT NOT NULL DEFAULT 'gauche'")
+            if "angle_ouverture" not in colonnes:
+                connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN angle_ouverture INTEGER NOT NULL DEFAULT 90")
 
     def lister(self) -> list[dict]:
         pieces = self.pieces.lister()
@@ -108,11 +115,12 @@ class Plan3DRepository:
         with sqlite3.connect(self.db_path) as connexion:
             curseur = connexion.execute("""
                 INSERT INTO ouvertures_pieces_3d
-                    (piece_id, type, mur, position, largeur, hauteur, hauteur_appui)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (piece_id, type, mur, position, largeur, hauteur, hauteur_appui, sens_ouverture, angle_ouverture)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 piece_id, donnees["type"], donnees["mur"], donnees["position"],
                 donnees["largeur"], donnees["hauteur"], donnees["hauteur_appui"],
+                donnees.get("sens_ouverture", "gauche"), donnees.get("angle_ouverture", 90),
             ))
             ouverture_id = curseur.lastrowid
         return next(item for item in self._lister_ouvertures(piece_id) if item["id"] == ouverture_id)
@@ -125,11 +133,12 @@ class Plan3DRepository:
         with sqlite3.connect(self.db_path) as connexion:
             curseur = connexion.execute("""
                 UPDATE ouvertures_pieces_3d
-                SET type = ?, mur = ?, position = ?, largeur = ?, hauteur = ?, hauteur_appui = ?
+                SET type = ?, mur = ?, position = ?, largeur = ?, hauteur = ?, hauteur_appui = ?, sens_ouverture = ?, angle_ouverture = ?
                 WHERE id = ? AND piece_id = ?
             """, (
                 donnees["type"], donnees["mur"], donnees["position"], donnees["largeur"],
-                donnees["hauteur"], donnees["hauteur_appui"], ouverture_id, piece_id,
+                donnees["hauteur"], donnees["hauteur_appui"], donnees.get("sens_ouverture", "gauche"),
+                donnees.get("angle_ouverture", 90), ouverture_id, piece_id,
             ))
             if curseur.rowcount == 0:
                 return None
