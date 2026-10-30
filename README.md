@@ -157,3 +157,15 @@ Le port doit apparaître dans la découverte actuelle et ne peut être associé 
 Dans la section **Automatisations conditionnelles**, le panneau « Configuration des ports USB / série » permet de consulter les ports détectés, d'associer un port à chaque capteur et de choisir son débit. Les ports déjà associés à un autre capteur ne sont pas proposés. L'interface permet également de retirer une association. Les associations sont rechargées périodiquement et restent enregistrées dans SQLite.
 
 Cette interface reste volontairement descriptive : elle n'ouvre pas les ports, ne transmet aucun octet et ne change pas l'adaptateur de simulation. Le protocole reste à définir avant toute communication avec un capteur physique.
+
+
+## Gestion des pièces de la maison
+
+Les pièces sont enregistrées dans la table SQLite `pieces_domotiques`. À l'initialisation, les pièces déjà utilisées par les appareils sont reprises automatiquement, sans déplacer ni supprimer d'appareil.
+
+- `GET /api/domotique/pieces` : lister les pièces et le nombre d'appareils associés.
+- `POST /api/domotique/pieces` : créer une pièce avec `nom`, `description` (facultative) et `couleur` au format `#RRGGBB`.
+- `PATCH /api/domotique/pieces/{piece_id}` : modifier les informations d'une pièce. Un renommage met à jour les références `piece` des appareils dans la même transaction SQLite.
+- `DELETE /api/domotique/pieces/{piece_id}` : supprimer une pièce vide. L'API refuse la suppression si des appareils y sont encore associés.
+
+La consultation est accessible aux utilisateurs connectés ; la création, la modification et la suppression sont réservées aux administrateurs. Cette étape prépare le modèle de données et l'interface de personnalisation des pièces. Elle ne dessine pas encore le plan isométrique et ne modifie pas les commandes des équipements.
