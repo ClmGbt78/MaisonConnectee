@@ -169,3 +169,20 @@ Les pièces sont enregistrées dans la table SQLite `pieces_domotiques`. À l'in
 - `DELETE /api/domotique/pieces/{piece_id}` : supprimer une pièce vide. L'API refuse la suppression si des appareils y sont encore associés.
 
 La consultation est accessible aux utilisateurs connectés ; la création, la modification et la suppression sont réservées aux administrateurs. Cette étape prépare le modèle de données et l'interface de personnalisation des pièces. Elle ne dessine pas encore le plan isométrique et ne modifie pas les commandes des équipements.
+
+
+## Plan 3D : géométrie des pièces
+
+La page **Plan 3D** utilise maintenant les pièces enregistrées dans `pieces_domotiques`. Chaque pièce possède une géométrie persistée séparément dans la table additive `geometrie_pieces_3d` :
+
+- position sur les axes X et Z (en mètres) ;
+- largeur, profondeur et hauteur des murs ;
+- numéro d'étage (0 pour le rez-de-chaussée, puis 1 à 5).
+
+Routes authentifiées :
+- `GET /api/domotique/plan-3d` : retourne les pièces et leur géométrie. Les pièces sans réglage reçoivent une disposition initiale indicative, sans écrire automatiquement ces valeurs en base.
+- `PUT /api/domotique/plan-3d/{piece_id}` : enregistre la géométrie d'une pièce (administrateur uniquement).
+
+Dans l'interface, l'administrateur peut régler les dimensions, la position et l'étage de chaque pièce. Le plan affiche les sols, les murs périphériques, les noms et permet de filtrer les étages ou de les voir ensemble. Les réglages sont conservés dans SQLite. Les anciennes données domotiques ne sont pas modifiées.
+
+Les positions et dimensions initiales sont des valeurs de départ, pas un relevé du logement. Les murs sont encore dessinés autour de chaque pièce indépendamment : la fusion des murs mitoyens, les portes et les fenêtres feront l'objet d'une étape ultérieure. Aucun appareil physique n'est activé par cette fonctionnalité.
