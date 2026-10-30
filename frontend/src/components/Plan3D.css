@@ -18,3 +18,13 @@
 .plan3d-success { color: #8fe3c0; }
 .plan3d-error { color: #ff9da8; }
 @media (max-width: 650px) { .plan3d-toolbar { align-items: stretch; flex-direction: column; } .plan3d-toolbar label, .plan3d-toolbar input[type="range"] { width: 100%; } .plan3d-canvas { min-height: 330px; height: 55vh; } .plan3d-hint { left: 10px; right: 10px; text-align: center; } }
+
+.plan3d-openings { grid-column: 1 / -1; display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid #29384d; }
+.plan3d-openings h3 { margin: 0; color: #dce7f5; font-size: 14px; }
+.plan3d-opening-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #aebbd0; font-size: 12px; }
+.plan3d-opening-row span { flex: 1 1 220px; }
+.plan3d-opening-row button, .plan3d-opening-form button { min-height: 32px; padding: 6px 10px; border: 1px solid #40516a; border-radius: 7px; background: #172438; color: #edf1fa; cursor: pointer; }
+.plan3d-opening-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); align-items: end; gap: 10px; }
+.plan3d-opening-form label { display: grid; gap: 6px; color: #aebbd0; font-size: 12px; }
+.plan3d-opening-form input, .plan3d-opening-form select { box-sizing: border-box; width: 100%; min-height: 34px; padding: 6px 8px; border: 1px solid #40516a; border-radius: 7px; background: #172438; color: #edf1fa; font: inherit; }
+.plan3d-opening-form button[type="submit"] { border-color: #376b6b; background: #193c43; color: #cffff5; }
