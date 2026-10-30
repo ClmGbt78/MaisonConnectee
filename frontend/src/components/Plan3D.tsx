@@ -97,7 +97,30 @@ export default function Plan3D({ role }: { role: string }) {
     }
   }, []);
 
-  useEffect(() => { void charger(); }, [charger]);
+  useEffect(() => {
+    let actif = true;
+    apiFetch("/api/domotique/plan-3d")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Impossible de charger la géométrie des pièces.");
+        return await response.json() as PiecePlan[];
+      })
+      .then((donnees) => {
+        if (!actif) return;
+        setPieces(donnees);
+        const premierePiece = donnees[0];
+        setSelection(premierePiece?.id ?? "");
+        setBrouillon(creerBrouillon(premierePiece));
+        setErreur("");
+      })
+      .catch((error: unknown) => {
+        if (!actif) return;
+        setErreur(error instanceof Error ? error.message : "Erreur de chargement du plan.");
+      })
+      .finally(() => {
+        if (actif) setChargement(false);
+      });
+    return () => { actif = false; };
+  }, []);
 
   const modifier = (champ: keyof Brouillon, valeur: number) => {
     setBrouillon((ancien) => ancien ? { ...ancien, [champ]: valeur } : ancien);
