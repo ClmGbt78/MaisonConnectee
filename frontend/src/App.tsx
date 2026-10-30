@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Plan3D from "./components/Plan3D";
 import "./App.css";
 import { apiFetch, setAccessToken } from "./api";
 import {
@@ -1204,6 +1205,14 @@ function App() {
           </a>
 
           <a
+            className={`nav-item ${pageActive === "plan3d" ? "active" : ""}`}
+            href="#plan-3d"
+            onClick={(event) => { event.preventDefault(); setPageActive("plan3d"); }}
+          >
+            ◫ <span>Plan 3D</span>
+          </a>
+
+          <a
             className={`nav-item ${pageActive === "assistant" ? "active" : ""}`}
             href="#assistant"
             onClick={(event) => {
@@ -1256,7 +1265,9 @@ function App() {
                     ? "Assistant IA"
                     : pageActive === "rgb"
                       ? "Éclairage RGB"
-                      : "Système"}
+                      : pageActive === "plan3d"
+                        ? "Plan 3D"
+                        : "Système"}
             </h1>
           </div>
           
@@ -2287,6 +2298,16 @@ function App() {
           )}
         </section>
       )}
+
+        {pageActive === "plan3d" && (
+          <section className="plan3d-page">
+            <div className="section-heading">
+              <div><h2>Vue interactive de la maison</h2><p>Explore le volume, règle la caméra et prépare la construction de ton plan réel.</p></div>
+              <span className="module-count">APERÇU 3D</span>
+            </div>
+            <Plan3D />
+          </section>
+        )}
 
         <section className="system-panel" id="systeme">
           <div>
