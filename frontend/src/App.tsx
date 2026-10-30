@@ -57,6 +57,20 @@ type Capteur = {
   id: string; nom: string; piece: string;
   mesure: { type_mesure: string; valeur: number; mise_a_jour: string } | null;
 };
+
+type PortSerie = {
+  port: string;
+  description: string;
+  fabricant: string | null;
+  identifiant_usb: string | null;
+};
+
+type ConfigurationSerieCapteur = {
+  capteur_id: string;
+  port: string;
+  debit: number;
+  protocole: string;
+};
 type AutomatisationConditionnelle = {
   id: string; nom: string; active: boolean; capteur_id: string; condition: string;
   seuil: number | null; duree_absence: number | null; scene_id: string | null; piece: string | null;
@@ -373,6 +387,13 @@ function App() {
   const [automatisationEnCours, setAutomatisationEnCours] = useState(false);
   const [capteurs, setCapteurs] = useState<Capteur[]>([]);
   const [conditions, setConditions] = useState<AutomatisationConditionnelle[]>([]);
+  const [portsSerie, setPortsSerie] = useState<PortSerie[]>([]);
+  const [configurationsSerie, setConfigurationsSerie] = useState<ConfigurationSerieCapteur[]>([]);
+  const [portsSerieErreur, setPortsSerieErreur] = useState("");
+  const [configurationSerieEnCours, setConfigurationSerieEnCours] = useState<string | null>(null);
+  const [portsSerieDisponibles, setPortsSerieDisponibles] = useState(true);
+  const [portsSelectionnes, setPortsSelectionnes] = useState<Record<string, string>>({});
+  const [debitsSelectionnes, setDebitsSelectionnes] = useState<Record<string, number>>({});
   const [nomCondition, setNomCondition] = useState("");
   const [capteurCondition, setCapteurCondition] = useState("");
   const [typeCondition, setTypeCondition] = useState("luminosite_inferieure");
@@ -572,6 +593,85 @@ function App() {
       window.clearInterval(interval);
     };
   }, [utilisateurConnecte]);
+
+  async function chargerConfigurationsSerie() {
+    try {
+      const [portsResponse, configurationsResponse] = await Promise.all([
+        apiFetch("/api/domotique/automatisations/ports-serie"),
+        apiFetch("/api/domotique/automatisations/capteurs/configurations-serie"),
+      ]);
+      if (!configurationsResponse.ok) throw new Error("Impossible de charger les associations série.");
+      setConfigurationsSerie(await configurationsResponse.json());
+      if (!portsResponse.ok) {
+        const erreur = await portsResponse.json().catch(() => ({}));
+        throw new Error(erreur.detail || "Impossible de détecter les ports série.");
+      }
+      const ports: PortSerie[] = await portsResponse.json();
+      setPortsSerie(ports);
+      setPortsSerieDisponibles(true);
+      setPortsSerieErreur("");
+    } catch (erreur) {
+      setPortsSerieDisponibles(false);
+      setPortsSerieErreur(erreur instanceof Error ? erreur.message : "Erreur de découverte des ports série.");
+    }
+  }
+
+  useEffect(() => {
+    if (!utilisateurConnecte) return;
+    const timeout = window.setTimeout(() => void chargerConfigurationsSerie(), 0);
+    const interval = window.setInterval(() => void chargerConfigurationsSerie(), 10000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [utilisateurConnecte]);
+
+  async function enregistrerConfigurationSerie(capteur: Capteur) {
+    const port = portsSelectionnes[capteur.id] ?? configurationsSerie.find((item) => item.capteur_id === capteur.id)?.port ?? "";
+    const debit = debitsSelectionnes[capteur.id] ?? configurationsSerie.find((item) => item.capteur_id === capteur.id)?.debit ?? 9600;
+    if (!port) {
+      setPortsSerieErreur("Sélectionne un port série pour ce capteur.");
+      return;
+    }
+    setConfigurationSerieEnCours(capteur.id);
+    setPortsSerieErreur("");
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/capteurs/${encodeURIComponent(capteur.id)}/configuration-serie`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ port, debit }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Enregistrement impossible.");
+      setConfigurationsSerie((items) => [...items.filter((item) => item.capteur_id !== capteur.id), data]);
+      setMessageDomotique(`Association ${data.port} enregistrée pour « ${capteur.nom} ».`);
+    } catch (erreur) {
+      setPortsSerieErreur(erreur instanceof Error ? erreur.message : "Erreur d'enregistrement.");
+    } finally {
+      setConfigurationSerieEnCours(null);
+    }
+  }
+
+  async function supprimerConfigurationSerie(capteur: Capteur) {
+    if (!window.confirm(`Retirer l'association série de « ${capteur.nom} » ?`)) return;
+    setConfigurationSerieEnCours(capteur.id);
+    setPortsSerieErreur("");
+    try {
+      const response = await apiFetch(`/api/domotique/automatisations/capteurs/${encodeURIComponent(capteur.id)}/configuration-serie`, { method: "DELETE" });
+      if (!response.ok && response.status !== 204) {
+        const data = await response.json();
+        throw new Error(data.detail || "Suppression impossible.");
+      }
+      setConfigurationsSerie((items) => items.filter((item) => item.capteur_id !== capteur.id));
+      setPortsSelectionnes((items) => { const next = { ...items }; delete next[capteur.id]; return next; });
+      setDebitsSelectionnes((items) => { const next = { ...items }; delete next[capteur.id]; return next; });
+      setMessageDomotique(`Association série retirée pour « ${capteur.nom} ».`);
+    } catch (erreur) {
+      setPortsSerieErreur(erreur instanceof Error ? erreur.message : "Erreur de suppression.");
+    } finally {
+      setConfigurationSerieEnCours(null);
+    }
+  }
 
   async function simulerCapteur(capteur: Capteur, type_mesure: "luminosite" | "presence", valeur: number) {
     try {
@@ -1738,6 +1838,47 @@ function App() {
                 </article>
               ))}
               {capteurs.length === 0 && <p className="metric-detail">Ajoute un appareil de type capteur pour commencer.</p>}
+            </div>
+            <div className="sensor-serial-panel">
+              <div className="sensor-serial-heading">
+                <h3>Configuration des ports USB / série</h3>
+                <button type="button" onClick={() => void chargerConfigurationsSerie()}>Actualiser les ports</button>
+              </div>
+              <p className="metric-detail">Associe chaque capteur logique à un port détecté et configure son débit. Cette étape n'ouvre aucun port et n'envoie aucune donnée.</p>
+              {portsSerieErreur && <p className="sensor-serial-error" role="alert">{portsSerieErreur}</p>}
+              {!portsSerieDisponibles && <p className="metric-detail">Vérifie que pySerial est installé dans l'environnement virtuel, puis actualise.</p>}
+              {capteurs.map((capteur) => {
+                const configuration = configurationsSerie.find((item) => item.capteur_id === capteur.id);
+                const portsUtilises = new Set(configurationsSerie.filter((item) => item.capteur_id !== capteur.id).map((item) => item.port.toUpperCase()));
+                const portCourant = portsSelectionnes[capteur.id] ?? configuration?.port ?? "";
+                const debitCourant = debitsSelectionnes[capteur.id] ?? configuration?.debit ?? 9600;
+                return (
+                  <article className="sensor-serial-card" key={capteur.id}>
+                    <div className="scene-details">
+                      <strong>{capteur.nom} · {capteur.piece}</strong>
+                      <span>{configuration ? `Associé à ${configuration.port} · ${configuration.debit} bauds · protocole à configurer` : "Aucun port associé"}</span>
+                    </div>
+                    <label>Port série
+                      <select value={portCourant} onChange={(event) => setPortsSelectionnes((items) => ({ ...items, [capteur.id]: event.target.value }))} disabled={!portsSerieDisponibles || configurationSerieEnCours === capteur.id}>
+                        <option value="">Choisir un port détecté</option>
+                        {portsSerie.filter((port) => !portsUtilises.has(port.port.toUpperCase()) || port.port === configuration?.port).map((port) => (
+                          <option key={port.port} value={port.port}>{port.port} · {port.description}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>Débit (bauds)
+                      <select value={debitCourant} onChange={(event) => setDebitsSelectionnes((items) => ({ ...items, [capteur.id]: Number(event.target.value) }))} disabled={configurationSerieEnCours === capteur.id}>
+                        {[300, 1200, 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200, 230400, 460800, 921600].map((debit) => <option key={debit} value={debit}>{debit.toLocaleString("fr-FR")}</option>)}
+                      </select>
+                    </label>
+                    <div className="sensor-serial-actions">
+                      <button type="button" onClick={() => void enregistrerConfigurationSerie(capteur)} disabled={!portsSerieDisponibles || !portCourant || configurationSerieEnCours === capteur.id}>{configurationSerieEnCours === capteur.id ? "En cours…" : "Enregistrer"}</button>
+                      {configuration && <button type="button" className="scene-delete" onClick={() => void supprimerConfigurationSerie(capteur)} disabled={configurationSerieEnCours === capteur.id}>Retirer</button>}
+                    </div>
+                  </article>
+                );
+              })}
+              {portsSerieDisponibles && portsSerie.length === 0 && <p className="metric-detail">Aucun port série détecté sur cet ordinateur.</p>}
             </div>
             <form className="scene-form" onSubmit={creerConditionnelle}>
               <label htmlFor="nom-condition">Nom de la règle</label>
