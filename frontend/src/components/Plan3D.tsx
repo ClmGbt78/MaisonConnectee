@@ -77,9 +77,6 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau }: {
 
 function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PiecePlan[]) {
   const horizontal = mur === "nord" || mur === "sud";
-  const oppose: Record<Ouverture["mur"], Ouverture["mur"]> = {
-    nord: "sud", sud: "nord", est: "ouest", ouest: "est",
-  };
   const bord = mur === "nord"
     ? piece.position_z - piece.profondeur / 2
     : mur === "sud"
