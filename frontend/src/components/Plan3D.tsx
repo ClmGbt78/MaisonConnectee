@@ -18,6 +18,18 @@ type PiecePlan = {
 
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
+function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
+  if (!piece) return null;
+  return {
+    position_x: piece.position_x,
+    position_z: piece.position_z,
+    largeur: piece.largeur,
+    profondeur: piece.profondeur,
+    hauteur: piece.hauteur,
+    etage: piece.etage,
+  };
+}
+
 function SolEtMurs({ piece, transparence, nuit }: { piece: PiecePlan; transparence: number; nuit: boolean }) {
   const x = piece.position_x;
   const z = piece.position_z;
@@ -67,15 +79,6 @@ export default function Plan3D({ role }: { role: string }) {
   const nuit = ambiance === "nuit";
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
-
-  const creerBrouillon = (piece: PiecePlan | undefined): Brouillon | null => piece ? ({
-    position_x: piece.position_x,
-    position_z: piece.position_z,
-    largeur: piece.largeur,
-    profondeur: piece.profondeur,
-    hauteur: piece.hauteur,
-    etage: piece.etage,
-  }) : null;
 
   const charger = useCallback(async () => {
     try {
