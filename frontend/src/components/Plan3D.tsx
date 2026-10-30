@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
+import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
 import "./Plan3D.css";
 
@@ -14,8 +15,11 @@ type PiecePlan = {
   profondeur: number;
   hauteur: number;
   etage: number;
+  ouvertures: Ouverture[];
 };
 
+type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number };
+type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
 function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
@@ -30,33 +34,60 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
+function MurAvecOuvertures({ piece, mur, ouvertures, materiau }: {
+  piece: PiecePlan;
+  mur: Ouverture["mur"];
+  ouvertures: Ouverture[];
+  materiau: { color: string; transparent: boolean; opacity: number; roughness: number; depthWrite: boolean };
+}) {
+  const longueur = mur === "nord" || mur === "sud" ? piece.largeur : piece.profondeur;
+  const geometry = useMemo(() => {
+    const forme = new Shape();
+    forme.moveTo(-longueur / 2, 0);
+    forme.lineTo(longueur / 2, 0);
+    forme.lineTo(longueur / 2, piece.hauteur);
+    forme.lineTo(-longueur / 2, piece.hauteur);
+    forme.closePath();
+    ouvertures.forEach((ouverture) => {
+      const trou = new Path();
+      const gauche = ouverture.position - ouverture.largeur / 2;
+      const droite = ouverture.position + ouverture.largeur / 2;
+      const bas = ouverture.hauteur_appui;
+      const haut = bas + ouverture.hauteur;
+      trou.moveTo(gauche, bas);
+      trou.lineTo(gauche, haut);
+      trou.lineTo(droite, haut);
+      trou.lineTo(droite, bas);
+      trou.closePath();
+      forme.holes.push(trou);
+    });
+    return new ExtrudeGeometry(forme, { depth: 0.14, bevelEnabled: false, curveSegments: 8 });
+  }, [longueur, piece.hauteur, ouvertures]);
+  const rotation = mur === "est" ? Math.PI / 2 : mur === "ouest" ? -Math.PI / 2 : 0;
+  const position: [number, number, number] = [
+    mur === "est" ? piece.largeur / 2 : mur === "ouest" ? -piece.largeur / 2 : 0,
+    0,
+    mur === "sud" ? piece.profondeur / 2 : mur === "nord" ? -piece.profondeur / 2 : 0,
+  ];
+  return <mesh position={position} rotation={[0, rotation, 0]} castShadow receiveShadow>
+    <primitive object={geometry} attach="geometry" />
+    <meshStandardMaterial {...materiau} side={2} />
+  </mesh>;
+}
+
 function SolEtMurs({ piece, transparence, nuit }: { piece: PiecePlan; transparence: number; nuit: boolean }) {
-  const x = piece.position_x;
-  const z = piece.position_z;
-  const w = piece.largeur;
-  const d = piece.profondeur;
-  const h = piece.hauteur;
-  const epaisseur = 0.14;
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
+  const ouvertures = piece.ouvertures ?? [];
   return (
-    <group position={[x, piece.etage * 3.25, z]}>
+    <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
       <mesh position={[0, 0.025, 0]} receiveShadow>
-        <boxGeometry args={[w, 0.05, d]} />
+        <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
       </mesh>
-      <mesh position={[0, h / 2, -d / 2]} castShadow receiveShadow>
-        <boxGeometry args={[w, h, epaisseur]} /><meshStandardMaterial {...materiauMur} />
-      </mesh>
-      <mesh position={[0, h / 2, d / 2]} castShadow receiveShadow>
-        <boxGeometry args={[w, h, epaisseur]} /><meshStandardMaterial {...materiauMur} />
-      </mesh>
-      <mesh position={[-w / 2, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[epaisseur, h, d]} /><meshStandardMaterial {...materiauMur} />
-      </mesh>
-      <mesh position={[w / 2, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[epaisseur, h, d]} /><meshStandardMaterial {...materiauMur} />
-      </mesh>
+      {(["nord", "sud", "est", "ouest"] as const).map((mur) => (
+        <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={ouvertures.filter((ouverture) => ouverture.mur === mur)} materiau={materiauMur} />
+      ))}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
       </Html>
@@ -68,6 +99,8 @@ export default function Plan3D({ role }: { role: string }) {
   const [pieces, setPieces] = useState<PiecePlan[]>([]);
   const [selection, setSelection] = useState("");
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
+  const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 });
+  const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
   const [etageAffiche, setEtageAffiche] = useState("0");
   const [transparence, setTransparence] = useState(82);
   const [ambiance, setAmbiance] = useState<"jour" | "nuit">("jour");
@@ -150,6 +183,36 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
+  const enregistrerOuverture = async () => {
+    if (!pieceSelectionnee) return;
+    setErreur("");
+    try {
+      const edition = ouvertureEditionId !== null;
+      const url = `/api/domotique/plan-3d/${pieceSelectionnee.id}/ouvertures${edition ? `/${ouvertureEditionId}` : ""}`;
+      const response = await apiFetch(url, { method: edition ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ouvertureBrouillon) });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Impossible d'enregistrer cette ouverture.");
+      setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, ouvertures: edition ? (piece.ouvertures ?? []).map((item) => item.id === donnees.id ? donnees : item) : [...(piece.ouvertures ?? []), donnees] } : piece));
+      setOuvertureEditionId(null);
+      setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 });
+      setMessage("Ouverture enregistrée.");
+    } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur d'enregistrement de l'ouverture."); }
+  };
+
+  const editerOuverture = (ouverture: Ouverture) => {
+    setOuvertureEditionId(ouverture.id);
+    setOuvertureBrouillon({ type: ouverture.type, mur: ouverture.mur, position: ouverture.position, largeur: ouverture.largeur, hauteur: ouverture.hauteur, hauteur_appui: ouverture.hauteur_appui });
+  };
+
+  const supprimerOuverture = async (ouverture: Ouverture) => {
+    if (!pieceSelectionnee) return;
+    const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/ouvertures/${ouverture.id}`, { method: "DELETE" });
+    if (!response.ok) { setErreur("Impossible de supprimer cette ouverture."); return; }
+    setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, ouvertures: (piece.ouvertures ?? []).filter((item) => item.id !== ouverture.id) } : piece));
+    if (ouvertureEditionId === ouverture.id) setOuvertureEditionId(null);
+    setMessage("Ouverture supprimée.");
+  };
+
   const piecesVisibles = etageAffiche === "tous" ? pieces : pieces.filter((piece) => piece.etage === Number(etageAffiche));
   const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + piece.largeur / 2 + 3), 16);
   const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + piece.profondeur / 2 + 3), 16);
@@ -192,6 +255,24 @@ export default function Plan3D({ role }: { role: string }) {
                   <label>Étage<select value={brouillon.etage} onChange={(event) => modifier("etage", Number(event.target.value))}>{[0, 1, 2, 3, 4, 5].map((etage) => <option key={etage} value={etage}>{etage === 0 ? "Rez-de-chaussée" : `Étage ${etage}`}</option>)}</select></label>
                   <button type="submit" disabled={enregistrement}>{enregistrement ? "Enregistrement…" : "Enregistrer la pièce"}</button>
                 </>}
+                <section className="plan3d-openings">
+                  <h3>Portes et fenêtres</h3>
+                  {(pieceSelectionnee?.ouvertures ?? []).map((ouverture) => <div className="plan3d-opening-row" key={ouverture.id}>
+                    <span>{ouverture.type === "porte" ? "Porte" : "Fenêtre"} · {ouverture.mur} · {ouverture.largeur} × {ouverture.hauteur} m</span>
+                    <button type="button" onClick={() => editerOuverture(ouverture)}>Modifier</button>
+                    <button type="button" onClick={() => void supprimerOuverture(ouverture)}>Supprimer</button>
+                  </div>)}
+                  <div className="plan3d-opening-form">
+                    <label>Type<select value={ouvertureBrouillon.type} onChange={(event) => { const type = event.target.value as BrouillonOuverture["type"]; setOuvertureBrouillon((ancien) => ({ ...ancien, type, hauteur: type === "porte" ? 2.1 : 1.2, hauteur_appui: type === "porte" ? 0 : 0.9 })); }}><option value="porte">Porte</option><option value="fenetre">Fenêtre</option></select></label>
+                    <label>Mur<select value={ouvertureBrouillon.mur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, mur: event.target.value as BrouillonOuverture["mur"] }))}><option value="nord">Nord</option><option value="sud">Sud</option><option value="est">Est</option><option value="ouest">Ouest</option></select></label>
+                    <label>Position sur le mur (m)<input type="number" step="0.1" min="-15" max="15" value={ouvertureBrouillon.position} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, position: Number(event.target.value) }))} /></label>
+                    <label>Largeur (m)<input type="number" min="0.4" max="8" step="0.1" value={ouvertureBrouillon.largeur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, largeur: Number(event.target.value) }))} /></label>
+                    <label>Hauteur (m)<input type="number" min="0.4" max="4" step="0.1" value={ouvertureBrouillon.hauteur} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur: Number(event.target.value) }))} /></label>
+                    <label>Hauteur d'appui (m)<input type="number" min="0" max="3" step="0.1" disabled={ouvertureBrouillon.type === "porte"} value={ouvertureBrouillon.hauteur_appui} onChange={(event) => setOuvertureBrouillon((ancien) => ({ ...ancien, hauteur_appui: Number(event.target.value) }))} /></label>
+                    <button type="button" onClick={() => void enregistrerOuverture()}>{ouvertureEditionId === null ? "Ajouter l'ouverture" : "Enregistrer l'ouverture"}</button>
+                    {ouvertureEditionId !== null && <button type="button" onClick={() => { setOuvertureEditionId(null); setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 }); }}>Annuler</button>}
+                  </div>
+                </section>
               </form>
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
           </div>

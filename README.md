@@ -186,3 +186,11 @@ Routes authentifiées :
 Dans l'interface, l'administrateur peut régler les dimensions, la position et l'étage de chaque pièce. Le plan affiche les sols, les murs périphériques, les noms et permet de filtrer les étages ou de les voir ensemble. Les réglages sont conservés dans SQLite. Les anciennes données domotiques ne sont pas modifiées.
 
 Les positions et dimensions initiales sont des valeurs de départ, pas un relevé du logement. Les murs sont encore dessinés autour de chaque pièce indépendamment : la fusion des murs mitoyens, les portes et les fenêtres feront l'objet d'une étape ultérieure. Aucun appareil physique n'est activé par cette fonctionnalité.
+
+## Plan 3D : portes et fenêtres
+La géométrie des pièces accepte désormais des ouvertures persistées dans la table additive `ouvertures_pieces_3d` :
+- Chaque ouverture possède un type (`porte` ou `fenetre`), un mur (`nord`, `sud`, `est`, `ouest`), une position sur le mur, une largeur, une hauteur et une hauteur d'appui.
+- La page Plan 3D permet aux administrateurs d'ajouter, modifier et supprimer ces ouvertures.
+- Les ouvertures sont découpées dans la géométrie des murs lors du rendu 3D.
+- Les API de création, modification et suppression sont réservées aux administrateurs et valident les dimensions par rapport au mur.
+- La migration est additive : les pièces, appareils et géométries existantes sont conservés.
