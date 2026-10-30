@@ -185,7 +185,7 @@ Routes authentifiées :
 
 Dans l'interface, l'administrateur peut régler les dimensions, la position et l'étage de chaque pièce. Le plan affiche les sols, les murs périphériques, les noms et permet de filtrer les étages ou de les voir ensemble. Les réglages sont conservés dans SQLite. Les anciennes données domotiques ne sont pas modifiées.
 
-Les positions et dimensions initiales sont des valeurs de départ, pas un relevé du logement. Les murs sont encore dessinés autour de chaque pièce indépendamment : la fusion des murs mitoyens, les portes et les fenêtres feront l'objet d'une étape ultérieure. Aucun appareil physique n'est activé par cette fonctionnalité.
+Les positions et dimensions initiales sont des valeurs de départ, pas un relevé du logement. Les murs mitoyens parfaitement alignés entre deux pièces du même étage, avec une portée et une hauteur identiques, sont représentés une seule fois. Les ouvertures définies de chaque côté sont regroupées sur ce mur commun. Les raccords partiels, les murs de dimensions différentes et les angles restent représentés séparément. Aucun appareil physique n'est activé par cette fonctionnalité.
 
 ## Plan 3D : portes et fenêtres
 La géométrie des pièces accepte désormais des ouvertures persistées dans la table additive `ouvertures_pieces_3d` :
@@ -194,3 +194,8 @@ La géométrie des pièces accepte désormais des ouvertures persistées dans la
 - Les ouvertures sont découpées dans la géométrie des murs lors du rendu 3D.
 - Les API de création, modification et suppression sont réservées aux administrateurs et valident les dimensions par rapport au mur.
 - La migration est additive : les pièces, appareils et géométries existantes sont conservés.
+
+
+## Plan 3D : murs mitoyens
+
+Le rendu détecte les murs opposés qui partagent exactement la même ligne et les mêmes limites, au même étage et avec la même hauteur. Un seul mur est alors dessiné pour éviter les doublons ; les portes et fenêtres déclarées sur chacun des deux côtés sont conservées dans la découpe. Cette déduplication ne fusionne pas encore les murs partiellement superposés, les murs de longueurs différentes ni les raccords en angle. Les géométries et ouvertures restent stockées dans leurs tables SQLite existantes : aucune migration ni réinitialisation de données n'est nécessaire.
