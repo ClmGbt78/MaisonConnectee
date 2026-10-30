@@ -285,7 +285,7 @@ export default function Plan3D({ role }: { role: string }) {
       if (!response.ok) throw new Error(donnees.detail || "Impossible d'enregistrer cette ouverture.");
       setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, ouvertures: edition ? (piece.ouvertures ?? []).map((item) => item.id === donnees.id ? donnees : item) : [...(piece.ouvertures ?? []), donnees] } : piece));
       setOuvertureEditionId(null);
-      setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0 });
+      setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
       setMessage("Ouverture enregistrée.");
     } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur d'enregistrement de l'ouverture."); }
   };
