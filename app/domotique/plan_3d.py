@@ -67,8 +67,12 @@ class Plan3DRepository:
         return resultat
 
     def enregistrer(self, piece_id: str, donnees: dict) -> dict | None:
-        if self.pieces.obtenir(piece_id) is None:
+        piece = self.pieces.obtenir(piece_id)
+        if piece is None:
             return None
+        piece_avec_geometrie = {**piece, **donnees}
+        for ouverture in self._lister_ouvertures(piece_id):
+            self._valider_ouverture(piece_avec_geometrie, ouverture)
         with sqlite3.connect(self.db_path) as connexion:
             connexion.execute("""
                 INSERT INTO geometrie_pieces_3d
