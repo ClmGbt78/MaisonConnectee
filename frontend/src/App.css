@@ -1704,3 +1704,6 @@ font-size: 26px;
 .room-actions button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 760px) { .room-card { align-items: flex-start; flex-wrap: wrap; } .room-fields { grid-template-columns: 1fr 1fr; } .room-actions { width: 100%; } }
 @media (max-width: 480px) { .room-fields { grid-template-columns: 1fr; } }
+
+/* Page Plan 3D */
+.plan3d-page { display: grid; gap: 18px; }
