@@ -83,11 +83,9 @@ export default function Plan3D({ role }: { role: string }) {
       if (!response.ok) throw new Error("Impossible de charger la géométrie des pièces.");
       const donnees: PiecePlan[] = await response.json();
       setPieces(donnees);
-      setSelection((ancienne) => {
-        const id = donnees.some((piece) => piece.id === ancienne) ? ancienne : donnees[0]?.id ?? "";
-        setBrouillon(creerBrouillon(donnees.find((piece) => piece.id === id)));
-        return id;
-      });
+      const premierePiece = donnees[0];
+      setSelection(premierePiece?.id ?? "");
+      setBrouillon(creerBrouillon(premierePiece));
       setErreur("");
     } catch (error) {
       setErreur(error instanceof Error ? error.message : "Erreur de chargement du plan.");
