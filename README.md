@@ -273,3 +273,18 @@ Routes réservées aux administrateurs (JWT avec le rôle `admin`) :
 Une restauration crée d'abord une sauvegarde de sécurité de l'état courant. Les fichiers de restauration sont vérifiés avant remplacement ; si une étape échoue, le service tente de revenir à la sauvegarde de sécurité. La restauration peut invalider la session en cours si la base des comptes restaurée ne contient plus le compte connecté.
 
 Les sauvegardes contiennent notamment les comptes et les données domotiques : protège le dossier de sauvegarde comme les bases originales. Pour une vraie protection contre une panne ou un vol du Raspberry Pi, copie également ce dossier vers un support ou un emplacement distant distinct. Le mécanisme intégré ne transfère pas les sauvegardes hors de la machine.
+
+
+### Copie automatique sur clé USB (Raspberry Pi)
+
+La copie USB est facultative et se configure avec `USB_BACKUP_MOUNT_PATH` dans le fichier `.env`. Exemple :
+
+```env
+USB_BACKUP_MOUNT_PATH=/mnt/maisonconnectee-usb
+```
+
+Sous Raspberry Pi OS, configure le montage permanent de la clé dans `/etc/fstab` en utilisant son UUID (obtenu avec `lsblk -f`) et un système de fichiers adapté. Crée le point de montage au préalable et vérifie que l'utilisateur qui exécute MaisonConnectée peut y écrire. Évite de monter la clé dans un répertoire personnel dépendant d'une session graphique.
+
+Le backend vérifie que le chemin configuré est un véritable point de montage Linux avant toute écriture. Si la clé est absente, la sauvegarde locale continue normalement et l'erreur est journalisée ; aucune donnée n'est écrite dans le répertoire de montage resté sur la carte SD. Les nouvelles sauvegardes sont copiées au démarrage, après chaque sauvegarde périodique et après une sauvegarde manuelle via l'API. Chaque copie est d'abord écrite dans un dossier temporaire puis vérifiée fichier par fichier avec SHA-256 avant d'être renommée. Les copies déjà présentes ne sont pas écrasées ni supprimées automatiquement.
+
+Les sauvegardes contiennent les comptes et les données domotiques : réserve la clé à cet usage, protège son accès physique et envisage le chiffrement du support. La copie USB protège d'une panne de la carte SD, mais pas d'un vol ou d'un sinistre emportant le Raspberry Pi et la clé ensemble. Éjecte/démonte proprement la clé avant de la débrancher.

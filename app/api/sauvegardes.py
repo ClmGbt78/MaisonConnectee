@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.backups import GestionnaireSauvegardes
 from app.core.config import get_settings
 from app.core.security import require_admin
+from app.core.usb_backups import GestionnaireCopieUSB
 
 router = APIRouter(prefix="/sauvegardes", tags=["Sauvegardes"])
 
@@ -33,7 +34,21 @@ def lister_sauvegardes(administrateur: dict = Depends(require_admin)):
 async def creer_sauvegarde(administrateur: dict = Depends(require_admin)):
     try:
         gestionnaire = obtenir_gestionnaire()
-        return await asyncio.to_thread(gestionnaire.creer_sauvegarde)
+        sauvegarde = await asyncio.to_thread(gestionnaire.creer_sauvegarde)
+        settings = get_settings()
+        if settings.usb_backup_mount_path is not None:
+            try:
+                copie = GestionnaireCopieUSB(
+                    settings.usb_backup_mount_path, gestionnaire.dossier_sauvegardes
+                )
+                resultat = await asyncio.to_thread(copie.copier_sauvegardes)
+                sauvegarde["copie_usb"] = "effectuee"
+                sauvegarde["sauvegardes_copiees_usb"] = resultat["copiees"]
+            except (OSError, RuntimeError) as erreur:
+                # La sauvegarde locale reste valide même si la clé est absente.
+                sauvegarde["copie_usb"] = "indisponible"
+                sauvegarde["detail_copie_usb"] = str(erreur)
+        return sauvegarde
     except (OSError, ValueError, sqlite3.Error) as erreur:
         raise HTTPException(status_code=500, detail="Impossible de créer la sauvegarde SQLite.") from erreur
 

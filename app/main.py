@@ -9,6 +9,7 @@ from app.api.rgb import router as rgb_router
 from app.api.routes import router, initialiser_base as initialiser_base_systeme
 from app.api.sauvegardes import router as sauvegardes_router, obtenir_gestionnaire
 from app.core.config import get_settings
+from app.core.usb_backups import GestionnaireCopieUSB
 from app.api.domotique import router as domotique_router, initialiser_stockage as initialiser_stockage_domotique
 from app.api.pieces import router as pieces_router, initialiser_stockage as initialiser_stockage_pieces
 from app.api.plan_3d import router as plan_3d_router, initialiser_stockage as initialiser_stockage_plan_3d
@@ -28,21 +29,35 @@ settings = get_settings()
 moteur_automatisations = MoteurAutomatisations(automatisations, service_domotique)
 
 
+async def synchroniser_sauvegardes_usb(gestionnaire):
+    if settings.usb_backup_mount_path is None:
+        return
+    try:
+        copie = GestionnaireCopieUSB(
+            settings.usb_backup_mount_path, gestionnaire.dossier_sauvegardes
+        )
+        resultat = await asyncio.to_thread(copie.copier_sauvegardes)
+        logger.info("Synchronisation USB : %s copie(s), %s déjà présente(s).",
+                    resultat["copiees"], resultat["ignorees"])
+    except Exception:
+        # Une clé absente ne doit jamais empêcher le démarrage de la domotique.
+        logger.exception("Copie des sauvegardes vers la clé USB impossible.")
+
+
 async def _boucle_sauvegardes_periodiques(gestionnaire):
     while True:
         await asyncio.sleep(settings.backup_interval_hours * 60 * 60)
         try:
             await asyncio.to_thread(gestionnaire.creer_sauvegarde)
             logger.info("Sauvegarde SQLite périodique créée.")
+            await synchroniser_sauvegardes_usb(gestionnaire)
         except Exception:
             logger.exception("Échec de la sauvegarde SQLite périodique.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Prépare le stockage configurable sans toucher aux bases existantes.
     settings.preparer_stockage()
-    # Les schémas SQLite sont créés explicitement au démarrage de l'API.
     from app.core.security import get_jwt_secret
     get_jwt_secret()
     initialiser_base()
@@ -57,6 +72,7 @@ async def lifespan(app: FastAPI):
     try:
         await asyncio.to_thread(gestionnaire_sauvegardes.creer_sauvegarde)
         logger.info("Sauvegarde SQLite initiale créée.")
+        await synchroniser_sauvegardes_usb(gestionnaire_sauvegardes)
     except Exception:
         logger.exception("Impossible de créer la sauvegarde SQLite initiale.")
 

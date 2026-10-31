@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     backup_dir: Path | None = None
     backup_interval_hours: int = Field(default=24, ge=1, le=168)
     backup_retention_count: int = Field(default=14, ge=1, le=365)
+    usb_backup_mount_path: Path | None = None
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
