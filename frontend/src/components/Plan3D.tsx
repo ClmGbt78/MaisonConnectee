@@ -39,8 +39,9 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     const profondeurTournee = Math.abs(Math.sin(rotation)) * meuble.largeur + Math.abs(Math.cos(rotation)) * meuble.profondeur;
     const x = Math.max(-piece.largeur / 2 + largeurTournee / 2, Math.min(piece.largeur / 2 - largeurTournee / 2, event.point.x - piece.position_x - decalage.current.x));
     const z = Math.max(-piece.profondeur / 2 + profondeurTournee / 2, Math.min(piece.profondeur / 2 - profondeurTournee / 2, event.point.z - piece.position_z - decalage.current.z));
-    const pas = pasGrille > 0 ? pasGrille : 0.01;
-    deplacer(meuble, Number((Math.round(x / pas) * pas).toFixed(2)), Number((Math.round(z / pas) * pas).toFixed(2)), final);
+    const xAligne = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;
+    const zAligne = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;
+    deplacer(meuble, Number(xAligne.toFixed(2)), Number(zAligne.toFixed(2)), final);
   };
   const materiau = (color: string) => <meshStandardMaterial color={color} roughness={meuble.type === "table" || meuble.type === "armoire" || meuble.type === "cuisine" ? 0.38 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
