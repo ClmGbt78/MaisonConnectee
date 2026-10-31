@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -29,9 +30,10 @@ def lister_sauvegardes(administrateur: dict = Depends(require_admin)):
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def creer_sauvegarde(administrateur: dict = Depends(require_admin)):
     try:
-        return await asyncio.to_thread(obtenir_gestionnaire().creer_sauvegarde)
-    except (OSError, ValueError) as erreur:
-        raise HTTPException(status_code=500, detail=f"Impossible de créer la sauvegarde : {erreur}") from erreur
+        gestionnaire = obtenir_gestionnaire()
+        return await asyncio.to_thread(gestionnaire.creer_sauvegarde)
+    except (OSError, ValueError, sqlite3.Error) as erreur:
+        raise HTTPException(status_code=500, detail="Impossible de créer la sauvegarde SQLite.") from erreur
 
 
 @router.post("/{identifiant}/restaurer")
@@ -40,8 +42,9 @@ async def restaurer_sauvegarde(
     administrateur: dict = Depends(require_admin),
 ):
     try:
-        return await asyncio.to_thread(obtenir_gestionnaire().restaurer, identifiant)
+        gestionnaire = obtenir_gestionnaire()
+        return await asyncio.to_thread(gestionnaire.restaurer, identifiant)
     except ValueError as erreur:
         raise HTTPException(status_code=404, detail=str(erreur)) from erreur
     except (OSError, sqlite3.Error) as erreur:
-        raise HTTPException(status_code=500, detail=f"Échec de la restauration : {erreur}") from erreur
+        raise HTTPException(status_code=500, detail="Échec de la restauration SQLite.") from erreur
