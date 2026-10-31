@@ -80,9 +80,6 @@ def initialiser_base():
         )
 
 
-initialiser_base()
-
-
 class Inscription(BaseModel):
     nom: str = Field(min_length=2, max_length=80)
     email: EmailStr

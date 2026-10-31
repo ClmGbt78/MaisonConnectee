@@ -11,9 +11,13 @@ from app.domotique.configuration_capteurs import ConfigurationCapteursRepository
 
 router = APIRouter(prefix="/domotique/automatisations", tags=["Automatisations"])
 automatisations = AutomatisationRepository()
-automatisations.initialiser()
 configurations_capteurs = ConfigurationCapteursRepository()
-configurations_capteurs.initialiser()
+
+
+def initialiser_stockages() -> None:
+    """Initialise les tables domotiques au démarrage de l'application."""
+    automatisations.initialiser()
+    configurations_capteurs.initialiser()
 
 
 class NouvelleAutomatisation(BaseModel):
