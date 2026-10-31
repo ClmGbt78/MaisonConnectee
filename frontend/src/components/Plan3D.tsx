@@ -100,7 +100,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
               max={positionMax}
               step={0.05}
               value={Math.min(positionMax, Math.max(positionMin, ouverture.position))}
-              onChange={(event) => deplacer(piece.id, ouverture.id, Number(event.target.value))}
+              onChange={(event) => deplacer(pieceOuverture.id, ouverture.id, Number(event.target.value))}
               onPointerUp={(event) => validerDeplacement(pieceOuverture, ouverture, Number((event.currentTarget as HTMLInputElement).value))}
               onKeyUp={(event) => {
                 if (event.key.startsWith("Arrow")) validerDeplacement(pieceOuverture, ouverture, Number((event.currentTarget as HTMLInputElement).value));
