@@ -479,6 +479,48 @@ export default function Plan3D({ role }: { role: string }) {
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
 
+  const importerPlanRezDeChaussee = async () => {
+    if (!window.confirm("Importer la reconstruction du rez-de-chaussée ? Les pièces portant déjà l'un de ces noms verront leur géométrie remplacée. Les autres pièces et les appareils existants seront conservés.")) return;
+    setErreur("");
+    setMessage("");
+    setEnregistrement(true);
+    try {
+      const response = await apiFetch("/api/domotique/plan-3d/importer-rez-de-chaussee", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Import du plan impossible.");
+      setPieces(data as PiecePlan[]);
+      const premiere = (data as PiecePlan[]).find((piece) => piece.nom === "Chambre 1-2") ?? (data as PiecePlan[])[0];
+      setSelection(premiere?.id ?? "");
+      setBrouillon(creerBrouillon(premiere));
+      setEtageAffiche("0");
+      setMessage("Reconstruction initiale du rez-de-chaussée importée. Les dimensions et les murs restent ajustables dans l'éditeur.");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur pendant l'import du plan.");
+    } finally {
+      setEnregistrement(false);
+    }
+  };
+
+  const supprimerPieceSelectionnee = async () => {
+    if (!pieceSelectionnee) return;
+    if (!window.confirm(`Supprimer la pièce « ${pieceSelectionnee.nom} » ? Les données de géométrie, ouvertures et mobilier 3D seront supprimées. Les pièces contenant des appareils ou utilisées par des automatisations seront protégées.`)) return;
+    try {
+      const response = await apiFetch(`/api/domotique/pieces/${pieceSelectionnee.id}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Suppression de la pièce impossible.");
+      const restantes = pieces.filter((piece) => piece.id !== pieceSelectionnee.id);
+      setPieces(restantes);
+      const suivante = restantes[0];
+      setSelection(suivante?.id ?? "");
+      setBrouillon(creerBrouillon(suivante));
+      setSelectionMeuble(null);
+      setMessage(`La pièce « ${pieceSelectionnee.nom} » a été supprimée.`);
+      setErreur("");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors de la suppression de la pièce.");
+    }
+  };
+
   const ajouterPiece = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nom = nomNouvellePiece.trim();
@@ -884,6 +926,8 @@ export default function Plan3D({ role }: { role: string }) {
       {role === "admin" && (
         <form className="plan3d-room-form plan3d-create-room-form" onSubmit={(event) => void ajouterPiece(event)}>
           <h3>Ajouter une pièce</h3>
+          <button type="button" onClick={() => void importerPlanRezDeChaussee()} disabled={enregistrement}>Importer la reconstruction du rez-de-chaussée</button>
+          <p>Crée une première disposition approximative d'après le plan fourni (11,72 × 9,00 m). Les pièces existantes non correspondantes sont conservées ; les géométries portant les mêmes noms sont remplacées.</p>
           <label>Nom de la pièce
             <input value={nomNouvellePiece} onChange={(event) => setNomNouvellePiece(event.target.value)} maxLength={60} required placeholder="Ex. Chambre parentale" />
           </label>
@@ -904,6 +948,7 @@ export default function Plan3D({ role }: { role: string }) {
             {role === "admin" ? (
               <form className="plan3d-room-form" onSubmit={enregistrer}>
                 <label>Pièce à modifier<select value={selection} onChange={(event) => { const id = event.target.value; setSelection(id); setBrouillon(creerBrouillon(pieces.find((piece) => piece.id === id))); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
+                <button type="button" className="plan3d-danger-button" onClick={() => void supprimerPieceSelectionnee()} disabled={!pieceSelectionnee}>Supprimer la pièce sélectionnée</button>
                 {brouillon && <>
                   <label>Position X (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_x} onChange={(event) => modifier("position_x", Number(event.target.value))} /></label>
                   <label>Position Z (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_z} onChange={(event) => modifier("position_z", Number(event.target.value))} /></label>
