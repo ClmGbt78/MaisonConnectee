@@ -30,3 +30,6 @@
 .plan3d-opening-form button[type="submit"] { border-color: #376b6b; background: #193c43; color: #cffff5; }
 
 .plan3d-canvas input[type="range"] { touch-action: pan-y; }
+
+.plan3d-furniture-control { display: flex !important; grid-template-columns: auto 76px !important; align-items: center; gap: 5px !important; min-width: 90px !important; }
+.plan3d-furniture-control input { width: 76px !important; min-height: 30px !important; }
