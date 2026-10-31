@@ -90,8 +90,8 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
     const appareilsScenario = portee === "maison"
       ? appareils.map((item) => cibles.find((c) => c.id === item.id) ?? { id: item.id, allume: false })
       : cibles;
-    const response = await apiFetch("/api/domotique/plan-3d/scenarios", {
-      method: "POST",
+    const response = await apiFetch(scenarioEditionId === null ? "/api/domotique/plan-3d/scenarios" : `/api/domotique/plan-3d/scenarios/${scenarioEditionId}`, {
+      method: scenarioEditionId === null ? "POST" : "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nom, description, portee, appareils: appareilsScenario }),
     });
@@ -101,6 +101,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
     setNom("");
     setDescription("");
     setCibles([]);
+    setScenarioEditionId(null);
     setMessage("Scénario enregistré.");
     setErreur("");
   };
@@ -152,7 +153,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
       {scenarios.map((scenario) => <div className="plan3d-scenario-row" key={scenario.id}>
         <span><strong>{scenario.nom}</strong><small>{scenario.description || (scenario.portee === "maison" ? "Toute la maison" : `${scenario.appareils.length} appareil(s) sélectionné(s)`)}</small></span>
         <button type="button" onClick={() => void appliquer(scenario)}>Appliquer</button>
-        {role === "admin" && <button type="button" onClick={() => void supprimer(scenario)}>Supprimer</button>}
+        {role === "admin" && <><button type="button" onClick={() => editerScenario(scenario)}>Modifier</button><button type="button" onClick={() => void supprimer(scenario)}>Supprimer</button></>}
       </div>)}
       {role === "admin" && <>
         <div className="plan3d-options-grid">
