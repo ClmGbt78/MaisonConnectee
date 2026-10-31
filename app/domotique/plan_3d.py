@@ -1,3 +1,5 @@
+import json
+import math
 import sqlite3
 from pathlib import Path
 
@@ -23,6 +25,7 @@ class Plan3DRepository:
                     profondeur REAL NOT NULL DEFAULT 3,
                     hauteur REAL NOT NULL DEFAULT 2.7,
                     etage INTEGER NOT NULL DEFAULT 0,
+                    forme_json TEXT,
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id)
                 )
             """)
@@ -69,6 +72,9 @@ class Plan3DRepository:
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
                 )
             """)
+            colonnes_geometrie = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(geometrie_pieces_3d)")}
+            if "forme_json" not in colonnes_geometrie:
+                connexion.execute("ALTER TABLE geometrie_pieces_3d ADD COLUMN forme_json TEXT")
             colonnes = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(ouvertures_pieces_3d)")}
             if "sens_ouverture" not in colonnes:
                 connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN sens_ouverture TEXT NOT NULL DEFAULT 'gauche'")
@@ -98,6 +104,11 @@ class Plan3DRepository:
                     "hauteur": 2.7,
                     "etage": 0,
                 }
+            if geometrie.get("forme_json"):
+                geometrie["forme"] = json.loads(geometrie["forme_json"])
+            else:
+                geometrie["forme"] = None
+            geometrie.pop("forme_json", None)
             resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"]), "installations": self.lister_installations(piece["id"])})
         return resultat
 
@@ -106,26 +117,84 @@ class Plan3DRepository:
         if piece is None:
             return None
         piece_avec_geometrie = {**piece, **donnees}
+        forme = donnees.get("forme")
+        if forme is not None:
+            self._valider_forme(forme)
         for ouverture in self._lister_ouvertures(piece_id):
             self._valider_ouverture(piece_avec_geometrie, ouverture)
         with sqlite3.connect(self.db_path) as connexion:
             connexion.execute("""
                 INSERT INTO geometrie_pieces_3d
-                    (piece_id, position_x, position_z, largeur, profondeur, hauteur, etage)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (piece_id, position_x, position_z, largeur, profondeur, hauteur, etage, forme_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(piece_id) DO UPDATE SET
                     position_x = excluded.position_x,
                     position_z = excluded.position_z,
                     largeur = excluded.largeur,
                     profondeur = excluded.profondeur,
                     hauteur = excluded.hauteur,
-                    etage = excluded.etage
+                    etage = excluded.etage,
+                    forme_json = excluded.forme_json
             """, (
                 piece_id, donnees["position_x"], donnees["position_z"],
                 donnees["largeur"], donnees["profondeur"],
                 donnees["hauteur"], donnees["etage"],
+                json.dumps(forme, separators=(",", ":")) if forme is not None else None,
             ))
         return next((piece for piece in self.lister() if piece["id"] == piece_id), None)
+
+    @staticmethod
+    def _valider_forme(forme: list[dict]) -> None:
+        if not isinstance(forme, list) or not 4 <= len(forme) <= 12:
+            raise ValueError("Une forme doit contenir entre 4 et 12 sommets.")
+        points = []
+        for point in forme:
+            if not isinstance(point, dict) or not all(k in point for k in ("x", "z")):
+                raise ValueError("Chaque sommet doit définir les coordonnées x et z.")
+            x, z = float(point["x"]), float(point["z"])
+            if not math.isfinite(x) or not math.isfinite(z) or abs(x) > 15 or abs(z) > 15:
+                raise ValueError("Les sommets doivent rester dans une zone de 15 mètres autour du centre.")
+            points.append((x, z))
+        if len(set(points)) != len(points):
+            raise ValueError("Deux sommets ne peuvent pas être confondus.")
+        aire_doublee = sum(points[i][0] * points[(i + 1) % len(points)][1] - points[(i + 1) % len(points)][0] * points[i][1] for i in range(len(points)))
+        if abs(aire_doublee) < 0.5:
+            raise ValueError("La surface de la pièce est trop petite.")
+        for i, (x1, z1) in enumerate(points):
+            x2, z2 = points[(i + 1) % len(points)]
+            if math.hypot(x2 - x1, z2 - z1) < 0.5:
+                raise ValueError("Chaque mur doit mesurer au moins 50 cm.")
+        def orientation(a, b, c):
+            return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+        def sur_segment(a, b, point):
+            return (
+                min(a[0], b[0]) - 1e-9 <= point[0] <= max(a[0], b[0]) + 1e-9
+                and min(a[1], b[1]) - 1e-9 <= point[1] <= max(a[1], b[1]) + 1e-9
+            )
+
+        def segments_se_croisent(a, b, c, d):
+            o1, o2 = orientation(a, b, c), orientation(a, b, d)
+            o3, o4 = orientation(c, d, a), orientation(c, d, b)
+            if o1 * o2 < 0 and o3 * o4 < 0:
+                return True
+            return (
+                (abs(o1) < 1e-9 and sur_segment(a, b, c))
+                or (abs(o2) < 1e-9 and sur_segment(a, b, d))
+                or (abs(o3) < 1e-9 and sur_segment(c, d, a))
+                or (abs(o4) < 1e-9 and sur_segment(c, d, b))
+            )
+
+        n = len(points)
+        for i in range(n):
+            a, b = points[i], points[(i + 1) % n]
+            for j in range(i + 1, n):
+                if j in (i, (i + 1) % n) or (j + 1) % n in (i, (i + 1) % n):
+                    continue
+                d, e = points[j], points[(j + 1) % n]
+                if segments_se_croisent(a, b, d, e):
+                    raise ValueError("Les murs ne peuvent pas se croiser.")
+
     def _lister_meubles(self, piece_id: str) -> list[dict]:
         with sqlite3.connect(self.db_path) as connexion:
             connexion.row_factory = sqlite3.Row

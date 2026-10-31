@@ -6,6 +6,7 @@ import { apiFetch } from "../api";
 import Plan3DOptions from "./Plan3DOptions";
 import "./Plan3D.css";
 
+type SommetForme = { x: number; z: number };
 type PiecePlan = {
   id: string;
   nom: string;
@@ -16,6 +17,7 @@ type PiecePlan = {
   profondeur: number;
   hauteur: number;
   etage: number;
+  forme: SommetForme[] | null;
   ouvertures: Ouverture[];
   meubles: Meuble[];
   installations: ElementInstallation[];
@@ -29,7 +31,18 @@ type LumiereDomotique = { id: string; nom: string; piece: string; type: string; 
 type FinitionSurface = { materiau: string; couleur: string };
 type FinitionsPiece = { piece_id: string; mur_interieur: FinitionSurface; mur_exterieur: FinitionSurface; sol: FinitionSurface; plafond: FinitionSurface };
 type BrouillonOuverture = Omit<Ouverture, "id">;
-type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
+type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage" | "forme">;
+
+
+function creerShape(forme: SommetForme[]) {
+  const shape = new Shape();
+  forme.forEach((sommet, index) => {
+    if (index === 0) shape.moveTo(sommet.x, -sommet.z);
+    else shape.lineTo(sommet.x, -sommet.z);
+  });
+  shape.closePath();
+  return shape;
+}
 
 function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, selectionner, pasGrille }: { meuble: Meuble; piece: PiecePlan; peutModifier: boolean; deplacer: (meuble: Meuble, x: number, z: number, final: boolean) => void; selectionne: boolean; selectionner: (id: number) => void; pasGrille: number }) {
   const couleurs: Record<Meuble["type"], string> = {
@@ -103,6 +116,7 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
     profondeur: piece.profondeur,
     hauteur: piece.hauteur,
     etage: piece.etage,
+    forme: piece.forme ? piece.forme.map((sommet) => ({ ...sommet })) : null,
   };
 }
 
@@ -305,13 +319,34 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
       {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
-      <mesh position={[0, 0.025, 0]} receiveShadow>
-        <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
-        <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
-      </mesh>
-      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} roughness={finition?.plafond.materiau === "bois" ? 0.58 : 0.88} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
+      {piece.forme ? (
+        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <shapeGeometry args={[creerShape(piece.forme)]} />
+          <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} side={2} />
+        </mesh>
+      ) : (
+        <mesh position={[0, 0.025, 0]} receiveShadow>
+          <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
+          <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
+        </mesh>
+      )}
+      {piece.forme ? piece.forme.map((sommet, index) => {
+        const suivant = piece.forme![(index + 1) % piece.forme!.length];
+        const dx = suivant.x - sommet.x;
+        const dz = suivant.z - sommet.z;
+        return <mesh key={"mur-libre-" + index} position={[(sommet.x + suivant.x) / 2, piece.hauteur / 2, (sommet.z + suivant.z) / 2]} rotation={[0, -Math.atan2(dz, dx), 0]} castShadow receiveShadow>
+          <boxGeometry args={[Math.hypot(dx, dz), piece.hauteur, 0.14]} />
+          <meshStandardMaterial color={nuit ? "#8293aa" : "#e0e7ef"} transparent={opacite < 1} opacity={opacite} roughness={rugositeMur} depthWrite={opacite >= 1} />
+        </mesh>;
+      }) : (
+        <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} roughness={finition?.plafond.materiau === "bois" ? 0.58 : 0.88} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
+      )}
+      {piece.forme && <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <shapeGeometry args={[creerShape(piece.forme)]} />
+        <meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} />
+      </mesh>}
       <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
-      {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
+      {!piece.forme && (["nord", "sud", "est", "ouest"] as const).map((mur) => {
         const voisin = mursCoincidents(piece, mur, pieces);
         if (voisin && piece.id.localeCompare(voisin.id) > 0) return null;
         const oppose: Record<Ouverture["mur"], Ouverture["mur"]> = { nord: "sud", sud: "nord", est: "ouest", ouest: "est" };
@@ -379,7 +414,7 @@ export default function Plan3D({ role }: { role: string }) {
           body: JSON.stringify({
             position_x: piece.position_x, position_z: piece.position_z,
             largeur: piece.largeur, profondeur: piece.profondeur,
-            hauteur: piece.hauteur, etage: piece.etage,
+            hauteur: piece.hauteur, etage: piece.etage, forme: piece.forme ?? null,
           }),
         });
         if (!sauvegarde.ok) throw new Error("Impossible de préserver la position des pièces déjà présentes.");
@@ -406,7 +441,7 @@ export default function Plan3D({ role }: { role: string }) {
       if (!nouvellePiece) throw new Error("La pièce a été créée, mais elle est absente du plan rechargé.");
       const bordDroit = donnees
         .filter((piece) => piece.id !== nouvellePiece.id)
-        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + piece.largeur / 2), 0);
+        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + (piece.forme?.length ? Math.max(...piece.forme.map((point) => point.x)) : piece.largeur / 2)), 0);
       const geometrie = {
         position_x: Number((bordDroit + 2 + nouvellePiece.largeur / 2).toFixed(2)),
         position_z: 0,
@@ -414,6 +449,7 @@ export default function Plan3D({ role }: { role: string }) {
         profondeur: nouvellePiece.profondeur,
         hauteur: nouvellePiece.hauteur,
         etage: nouvellePiece.etage,
+        forme: null,
       };
       const geometrieResponse = await apiFetch("/api/domotique/plan-3d/" + nouvellePiece.id, {
         method: "PUT",
@@ -530,6 +566,41 @@ export default function Plan3D({ role }: { role: string }) {
     setBrouillon((ancien) => ancien ? { ...ancien, [champ]: valeur } : ancien);
     setMessage("");
   };
+
+
+  const modifierSommet = (index: number, axe: "x" | "z", valeur: number) => {
+    setBrouillon((ancien) => ancien?.forme ? { ...ancien, forme: ancien.forme.map((sommet, i) => i === index ? { ...sommet, [axe]: valeur } : sommet) } : ancien);
+    setMessage("");
+  };
+
+  const activerFormeLibre = () => {
+    setBrouillon((ancien) => ancien ? { ...ancien, forme: ancien.forme ?? [
+      { x: -ancien.largeur / 2, z: -ancien.profondeur / 2 },
+      { x: ancien.largeur / 2, z: -ancien.profondeur / 2 },
+      { x: ancien.largeur / 2, z: ancien.profondeur / 2 },
+      { x: -ancien.largeur / 2, z: ancien.profondeur / 2 },
+    ] } : ancien);
+  };
+
+  const ajouterSommet = () => {
+    setBrouillon((ancien) => {
+      if (!ancien?.forme || ancien.forme.length >= 12) return ancien;
+      let meilleur = 0;
+      let longueurMax = -1;
+      ancien.forme.forEach((point, index) => {
+        const suivant = ancien.forme![(index + 1) % ancien.forme!.length];
+        const longueur = Math.hypot(suivant.x - point.x, suivant.z - point.z);
+        if (longueur > longueurMax) { longueurMax = longueur; meilleur = index; }
+      });
+      const a = ancien.forme[meilleur];
+      const b = ancien.forme[(meilleur + 1) % ancien.forme.length];
+      const forme = [...ancien.forme];
+      forme.splice(meilleur + 1, 0, { x: Number(((a.x + b.x) / 2).toFixed(2)), z: Number(((a.z + b.z) / 2).toFixed(2)) });
+      return { ...ancien, forme };
+    });
+  };
+
+  const supprimerSommet = (index: number) => setBrouillon((ancien) => ancien?.forme && ancien.forme.length > 4 ? { ...ancien, forme: ancien.forme.filter((_, i) => i !== index) } : ancien);
 
   const enregistrer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -662,9 +733,10 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
-  const piecesVisibles = etageAffiche === "tous" ? pieces : pieces.filter((piece) => piece.etage === Number(etageAffiche));
-  const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + piece.largeur / 2 + 3), 16);
-  const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + piece.profondeur / 2 + 3), 16);
+  const piecesPourAffichage = pieces.map((piece) => piece.id === selection && brouillon ? { ...piece, ...brouillon } : piece);
+  const piecesVisibles = etageAffiche === "tous" ? piecesPourAffichage : piecesPourAffichage.filter((piece) => piece.etage === Number(etageAffiche));
+  const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.x))) : piece.largeur / 2) + 3), 16);
+  const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.z))) : piece.profondeur / 2) + 3), 16);
 
   return (
     <div className={"plan3d-shell " + (nuit ? "plan3d-night" : "plan3d-day")}>
@@ -720,6 +792,21 @@ export default function Plan3D({ role }: { role: string }) {
                   <label>Hauteur des murs (m)<input type="number" min="2" max="5" step="0.1" value={brouillon.hauteur} onChange={(event) => modifier("hauteur", Number(event.target.value))} /></label>
                   <label>Étage<select value={brouillon.etage} onChange={(event) => modifier("etage", Number(event.target.value))}>{[0, 1, 2, 3, 4, 5].map((etage) => <option key={etage} value={etage}>{etage === 0 ? "Rez-de-chaussée" : `Étage ${etage}`}</option>)}</select></label>
                   <button type="submit" disabled={enregistrement}>{enregistrement ? "Enregistrement…" : "Enregistrer la pièce"}</button>
+                  <section className="plan3d-openings plan3d-shape-editor">
+                    <h3>Forme des murs</h3>
+                    {!brouillon.forme ? <button type="button" onClick={activerFormeLibre}>Activer l'édition des murs</button> : <>
+                      <p>Modifie les coordonnées des sommets pour déplacer les murs et dessiner une pièce en L ou une forme irrégulière.</p>
+                      {brouillon.forme.map((sommet, index) => <div className="plan3d-opening-row" key={index}>
+                        <strong>Sommet {index + 1}</strong>
+                        <label className="plan3d-furniture-control">X (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.x} onChange={(event) => modifierSommet(index, "x", Number(event.target.value))} /></label>
+                        <label className="plan3d-furniture-control">Z (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.z} onChange={(event) => modifierSommet(index, "z", Number(event.target.value))} /></label>
+                        <button type="button" disabled={brouillon.forme.length <= 4} onClick={() => supprimerSommet(index)}>Retirer</button>
+                      </div>)}
+                      <button type="button" disabled={brouillon.forme.length >= 12} onClick={ajouterSommet}>Ajouter un sommet sur le mur le plus long</button>
+                      <button type="button" onClick={() => setBrouillon((ancien) => ancien ? { ...ancien, forme: null } : ancien)}>Revenir au rectangle</button>
+                      <p>Les portes et fenêtres existantes sont conservées, mais ne sont pas encore affichées sur une forme libre.</p>
+                    </>}
+                  </section>
                 </>}
                 <section className="plan3d-openings">
                   <h3>Portes et fenêtres</h3>
@@ -793,7 +880,7 @@ export default function Plan3D({ role }: { role: string }) {
           <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions, leur forme et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
     </div>
   );
 }

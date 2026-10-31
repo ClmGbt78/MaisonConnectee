@@ -13,6 +13,11 @@ def initialiser_stockage() -> None:
     repository.initialiser()
 
 
+class SommetPiece(BaseModel):
+    x: float = Field(ge=-15, le=15)
+    z: float = Field(ge=-15, le=15)
+
+
 class GeometriePiece(BaseModel):
     position_x: float = Field(ge=-100, le=100)
     position_z: float = Field(ge=-100, le=100)
@@ -20,6 +25,7 @@ class GeometriePiece(BaseModel):
     profondeur: float = Field(ge=1.5, le=30)
     hauteur: float = Field(default=2.7, ge=2, le=5)
     etage: int = Field(default=0, ge=0, le=5)
+    forme: list[SommetPiece] | None = Field(default=None, min_length=4, max_length=12)
 
 
 @router.get("")
@@ -33,7 +39,10 @@ def enregistrer_geometrie(
     geometrie: GeometriePiece,
     utilisateur: dict = Depends(require_admin),
 ):
-    resultat = repository.enregistrer(piece_id, geometrie.model_dump())
+    try:
+        resultat = repository.enregistrer(piece_id, geometrie.model_dump())
+    except ValueError as erreur:
+        raise HTTPException(status_code=422, detail=str(erreur)) from erreur
     if resultat is None:
         raise HTTPException(status_code=404, detail="Pièce introuvable")
     return resultat
