@@ -38,3 +38,14 @@
 .plan3d-canvas canvas:active { cursor: grabbing; }
 .plan3d-furniture-control { grid-template-columns: auto 68px !important; }
 .plan3d-furniture-control input { width: 68px !important; }
+
+
+.plan3d-selection-bar, .plan3d-light-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid #36516d; border-radius: 9px; background: #14243a; color: #c8d8eb; font-size: 12px; }
+.plan3d-selection-bar { margin-bottom: 8px; border-color: #27718a; background: #102d3b; color: #b9efff; }
+.plan3d-selection-bar button { min-height: 28px; padding: 4px 9px; border: 1px solid #3c91a9; border-radius: 6px; background: #164354; color: #e0f7ff; cursor: pointer; }
+.plan3d-light-status { margin-bottom: 10px; border-color: #66543a; background: #2b2419; color: #f2d8a9; }
+.plan3d-light-label { padding: 3px 6px; border: 1px solid #9b8357; border-radius: 5px; background: #211b12e8; color: #ffe8b8; font: 600 9px sans-serif; }
+.plan3d-night .plan3d-light-label { border-color: #657ca4; background: #111c30ed; color: #d9e8ff; }
+.plan3d-toolbar select { min-width: 110px; }
+
+.plan3d-light-label-night { border-color: #657ca4; background: #111c30ed; color: #d9e8ff; }

@@ -225,3 +225,13 @@ Les portes et fenêtres disposent d'un curseur de déplacement directement posit
 ## Plan 3D : mobilier
 
 Le plan 3D permet aux administrateurs d'ajouter des meubles schématiques (canapé, fauteuil, table, lit, armoire et meuble de cuisine), de modifier leur position dans la pièce, de les tourner par pas de 90° et de les supprimer. Les meubles sont enregistrés dans la table additive `meubles_pieces_3d` de SQLite. La création de cette table ne supprime ni ne réinitialise les données existantes. Les meubles doivent rester dans les limites de la pièce.
+
+
+## Plan 3D : édition intuitive, mobilier et éclairage
+
+- Les meubles peuvent être sélectionnés directement dans la scène ; une surbrillance identifie l'objet actif.
+- Le déplacement à la souris propose un accrochage réglable à la grille (5, 10, 25 ou 50 cm), ou un déplacement libre. Les limites de la pièce tiennent compte de la rotation du meuble.
+- Les principaux volumes de mobilier utilisent des arêtes adoucies et des matériaux différenciés pour renforcer leur lisibilité.
+- Les lumières domotiques sont relues depuis l'API des appareils. Une lumière allumée est matérialisée dans la pièce correspondante par un luminaire et une source ponctuelle dont la couleur et l'intensité reprennent les réglages disponibles.
+- L'ambiance jour/nuit adapte l'éclairage général et l'apparence des luminaires. Le rendu 3D reste visuel : il ne commande pas les appareils.
+- Cette évolution ne modifie pas le schéma SQLite et ne touche pas aux données existantes.

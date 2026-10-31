@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Html, OrbitControls } from "@react-three/drei";
+import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
 import "./Plan3D.css";
@@ -21,10 +21,11 @@ type PiecePlan = {
 
 type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number; sens_ouverture: "gauche" | "droite"; angle_ouverture: number };
 type Meuble = { id: number; type: "canape" | "fauteuil" | "table" | "lit" | "armoire" | "cuisine"; position_x: number; position_z: number; largeur: number; profondeur: number; hauteur: number; rotation: number };
+type LumiereDomotique = { id: string; nom: string; piece: string; type: string; allume: boolean; luminosite?: number | null; temperature_couleur?: number | null; couleur?: string | null };
 type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
-function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer }: { meuble: Meuble; piece: PiecePlan; peutModifier: boolean; deplacer: (meuble: Meuble, x: number, z: number, final: boolean) => void }) {
+function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, selectionner, pasGrille }: { meuble: Meuble; piece: PiecePlan; peutModifier: boolean; deplacer: (meuble: Meuble, x: number, z: number, final: boolean) => void; selectionne: boolean; selectionner: (id: number) => void; pasGrille: number }) {
   const couleurs: Record<Meuble["type"], string> = {
     canape: "#557b91", fauteuil: "#638b9d", table: "#9b704e",
     lit: "#b7c7d8", armoire: "#8b7059", cuisine: "#aeb8c2",
@@ -38,19 +39,24 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer }: { meuble: Meub
     const profondeurTournee = Math.abs(Math.sin(rotation)) * meuble.largeur + Math.abs(Math.cos(rotation)) * meuble.profondeur;
     const x = Math.max(-piece.largeur / 2 + largeurTournee / 2, Math.min(piece.largeur / 2 - largeurTournee / 2, event.point.x - piece.position_x - decalage.current.x));
     const z = Math.max(-piece.profondeur / 2 + profondeurTournee / 2, Math.min(piece.profondeur / 2 - profondeurTournee / 2, event.point.z - piece.position_z - decalage.current.z));
-    deplacer(meuble, Number(x.toFixed(2)), Number(z.toFixed(2)), final);
+    const xAligne = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;
+    const zAligne = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;
+    const xFinal = Math.max(-piece.largeur / 2 + largeurTournee / 2, Math.min(piece.largeur / 2 - largeurTournee / 2, xAligne));
+    const zFinal = Math.max(-piece.profondeur / 2 + profondeurTournee / 2, Math.min(piece.profondeur / 2 - profondeurTournee / 2, zAligne));
+    deplacer(meuble, Number(xFinal.toFixed(2)), Number(zFinal.toFixed(2)), final);
   };
-  const materiau = (color: string) => <meshStandardMaterial color={color} roughness={0.72} />;
+  const materiau = (color: string) => <meshStandardMaterial color={color} roughness={meuble.type === "table" || meuble.type === "armoire" || meuble.type === "cuisine" ? 0.38 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
-    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
+    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
     onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
     onPointerCancel={() => { glisse.current = false; }}>
-    <mesh position={[0, meuble.hauteur / 2, 0]} castShadow receiveShadow><boxGeometry args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} />{materiau(couleur)}</mesh>
+    <RoundedBox position={[0, meuble.hauteur / 2, 0]} args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} radius={Math.min(0.045, meuble.hauteur * 0.08)} smoothness={3} castShadow receiveShadow>{materiau(couleur)}</RoundedBox>
+    {selectionne && <mesh position={[0, meuble.hauteur / 2, 0]}><boxGeometry args={[meuble.largeur + 0.055, meuble.hauteur + 0.055, meuble.profondeur + 0.055]} /><meshBasicMaterial color="#38bdf8" wireframe transparent opacity={0.9} depthTest={false} /></mesh>}
     {meuble.type === "canape" && <>
       <mesh position={[0, meuble.hauteur * 0.76, -meuble.profondeur * 0.38]} castShadow><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.42, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
       {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.56, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.48, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
-      <mesh position={[0, meuble.hauteur * 0.57, 0.08]}><boxGeometry args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} />{materiau("#7896a8")}</mesh>
+      <RoundedBox position={[0, meuble.hauteur * 0.57, 0.08]} args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} radius={0.055} smoothness={3} castShadow>{materiau("#7896a8")}</RoundedBox>
     </>}
     {meuble.type === "fauteuil" && <>
       <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.38]}><boxGeometry args={[meuble.largeur * 0.88, meuble.hauteur * 0.4, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
@@ -59,7 +65,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer }: { meuble: Meub
     {meuble.type === "lit" && <>
       <mesh position={[0, meuble.hauteur * 0.9, -meuble.profondeur * 0.42]}><boxGeometry args={[meuble.largeur, meuble.hauteur * 0.2, 0.1]} />{materiau("#8b7059")}</mesh>
       {[-1, 1].map((c) => <mesh key={c} position={[c * meuble.largeur * 0.23, meuble.hauteur * 1.08, meuble.profondeur * 0.28]}><boxGeometry args={[meuble.largeur * 0.32, meuble.hauteur * 0.12, meuble.profondeur * 0.2]} />{materiau("#f4f6f8")}</mesh>)}
-      <mesh position={[0, meuble.hauteur * 1.02, 0.05]}><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.12, meuble.profondeur * 0.72]} />{materiau("#e7edf2")}</mesh>
+      <RoundedBox position={[0, meuble.hauteur * 1.02, 0.05]} args={[meuble.largeur * 0.92, meuble.hauteur * 0.12, meuble.profondeur * 0.72]} radius={0.045} smoothness={4} castShadow>{materiau("#e7edf2")}</RoundedBox>
     </>}
     {meuble.type === "table" && <>
       {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.42, meuble.hauteur * 0.25, z * meuble.profondeur * 0.38]}><boxGeometry args={[0.07, meuble.hauteur * 0.5, 0.07]} />{materiau("#765338")}</mesh>))}
@@ -243,18 +249,32 @@ function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PieceP
   });
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble }: {
+function LuminairePiece3D({ lumieres, nuit }: { lumieres: LumiereDomotique[]; nuit: boolean }) {
+  return <group>{lumieres.map((lumiere, index) => {
+    const couleur = lumiere.couleur || (lumiere.temperature_couleur && lumiere.temperature_couleur < 3500 ? "#ffbd78" : "#e6f2ff");
+    const intensite = lumiere.allume ? Math.max(0.08, (lumiere.luminosite ?? 100) / 100) * 1.7 : 0;
+    return <group key={lumiere.id} position={[(index % 2 ? 0.65 : -0.65), 2.48, (index < 2 ? -0.55 : 0.55)]}>
+      <mesh><sphereGeometry args={[0.09, 16, 12]} /><meshStandardMaterial color={lumiere.allume ? couleur : "#64748b"} emissive={lumiere.allume ? couleur : "#000000"} emissiveIntensity={lumiere.allume ? 1.8 : 0} /></mesh>
+      {lumiere.allume && <pointLight color={couleur} intensity={intensite} distance={Math.max(3.5, Math.min(7, 2.5 + (lumiere.luminosite ?? 100) / 25))} decay={2} />}
+      <Html position={[0, 0.2, 0]} center distanceFactor={12} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}><span className={nuit ? "plan3d-light-label plan3d-light-label-night" : "plan3d-light-label"}>{lumiere.nom}</span></Html>
+    </group>;
+  })}</group>;
+}
+
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres }: {
   piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
+  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[];
 }) {
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
   return (
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
-      {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} />)}
+      {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
+      <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
@@ -279,6 +299,9 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
 export default function Plan3D({ role }: { role: string }) {
   const [pieces, setPieces] = useState<PiecePlan[]>([]);
   const [selection, setSelection] = useState("");
+  const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
+  const [pasGrille, setPasGrille] = useState(0.1);
+  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
   const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
   const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
@@ -294,6 +317,14 @@ export default function Plan3D({ role }: { role: string }) {
   const nuit = ambiance === "nuit";
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
+
+  const chargerLumieres = useCallback(async () => {
+    try {
+      const response = await apiFetch("/api/domotique/appareils?type=lumiere");
+      if (!response.ok) return;
+      setLumieres(await response.json() as LumiereDomotique[]);
+    } catch { /* Le plan reste consultable si le service domotique est indisponible. */ }
+  }, []);
 
   const charger = useCallback(async () => {
     try {
@@ -334,6 +365,13 @@ export default function Plan3D({ role }: { role: string }) {
       .finally(() => {
         if (actif) setChargement(false);
       });
+    apiFetch("/api/domotique/appareils?type=lumiere")
+      .then(async (response) => {
+        if (!response.ok) return [];
+        return await response.json() as LumiereDomotique[];
+      })
+      .then((donnees) => { if (actif) setLumieres(donnees); })
+      .catch(() => { /* Le plan reste consultable si le service domotique est indisponible. */ });
     return () => { actif = false; };
   }, []);
 
@@ -493,7 +531,8 @@ export default function Plan3D({ role }: { role: string }) {
           <select value={ambiance} onChange={(event) => setAmbiance(event.target.value as "jour" | "nuit")}><option value="jour">Jour</option><option value="nuit">Nuit</option></select>
         </label>
         <button type="button" onClick={() => setReset((value) => value + 1)}>Réinitialiser la vue</button>
-        <button type="button" onClick={() => void charger()} disabled={chargement}>Actualiser</button>
+        <button type="button" onClick={() => { void charger(); void chargerLumieres(); }} disabled={chargement}>Actualiser</button>
+        {role === "admin" && <label>Alignement du mobilier<select value={pasGrille} onChange={(event) => setPasGrille(Number(event.target.value))}><option value={0}>Libre</option><option value={0.05}>5 cm</option><option value={0.1}>10 cm</option><option value={0.25}>25 cm</option><option value={0.5}>50 cm</option></select></label>}
       </div>
 
       {chargement && <p className="plan3d-status">Chargement des pièces…</p>}
@@ -555,12 +594,15 @@ export default function Plan3D({ role }: { role: string }) {
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
           </div>
           {message && <p className="plan3d-success" role="status">{message}</p>}
+          {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
+          <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
             <Canvas key={reset} shadows camera={{ position: [planLargeur * 0.85, 12, planProfondeur * 0.85], fov: 42 }}>
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
-              <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.7 : 2} castShadow />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} />)}
+              <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
+              <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
@@ -568,7 +610,7 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les modèles restent schématiques.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les lumières domotiques allumées sont représentées comme des sources lumineuses colorées dans leur pièce ; le rendu ne commande pas les appareils.</p>
     </div>
   );
 }
