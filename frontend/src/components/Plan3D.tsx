@@ -484,6 +484,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [transparence, setTransparence] = useState(82);
   const [ambiance, setAmbiance] = useState<"jour" | "nuit">("jour");
   const [reset, setReset] = useState(0);
+  const [rotationVueActive, setRotationVueActive] = useState(false);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -1024,6 +1025,7 @@ Cette opération est irréversible. Continuer ?`)) return;
           <select value={ambiance} onChange={(event) => setAmbiance(event.target.value as "jour" | "nuit")}><option value="jour">Jour</option><option value="nuit">Nuit</option></select>
         </label>
         <button type="button" onClick={() => setReset((value) => value + 1)}>Réinitialiser la vue</button>
+        <button type="button" aria-pressed={rotationVueActive} onClick={() => setRotationVueActive((active) => !active)}>{rotationVueActive ? "Désactiver la rotation par clic gauche" : "Activer la rotation par clic gauche"}</button>
         <button type="button" onClick={() => { void charger(); void chargerLumieres(); }} disabled={chargement}>Actualiser</button>
         {role === "admin" && <label>Alignement du mobilier<select value={pasGrille} onChange={(event) => setPasGrille(Number(event.target.value))}><option value={0}>Libre</option><option value={0.05}>5 cm</option><option value={0.1}>10 cm</option><option value={0.25}>25 cm</option><option value={0.5}>50 cm</option></select></label>}
       </div>
@@ -1154,7 +1156,7 @@ Cette opération est irréversible. Continuer ?`)) return;
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
               {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} deplacerPiece={deplacerPieceEntiere} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
-              <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
+              <OrbitControls makeDefault enableDamping enablePan enableRotate={rotationVueActive} enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
             <div className="plan3d-hint">Faire glisser le sol d’une pièce pour déplacer toute la pièce · Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
