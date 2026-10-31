@@ -48,7 +48,11 @@ class Plan3DRepository:
                 CREATE TABLE IF NOT EXISTS meubles_pieces_3d (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     piece_id TEXT NOT NULL,
-                    type TEXT NOT NULL CHECK (type IN ('canape', 'fauteuil', 'table', 'lit', 'armoire', 'cuisine')),
+                    type TEXT NOT NULL CHECK (type IN (
+                        'canape', 'fauteuil', 'table', 'lit', 'armoire', 'cuisine',
+                        'television', 'meuble_tv', 'table_basse', 'chaise', 'bureau',
+                        'table_chevet', 'commode'
+                    )),
                     position_x REAL NOT NULL DEFAULT 0,
                     position_z REAL NOT NULL DEFAULT 0,
                     largeur REAL NOT NULL,
@@ -58,6 +62,39 @@ class Plan3DRepository:
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
                 )
             """)
+            # Migration non destructive : conserve les meubles déjà enregistrés
+            # tout en élargissant les types autorisés par la contrainte SQLite.
+            schema_meubles = connexion.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='meubles_pieces_3d'"
+            ).fetchone()
+            if schema_meubles and "'television'" not in schema_meubles[0]:
+                connexion.execute("DROP TABLE IF EXISTS meubles_pieces_3d_nouveau")
+                connexion.execute("""
+                    CREATE TABLE meubles_pieces_3d_nouveau (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        piece_id TEXT NOT NULL,
+                        type TEXT NOT NULL CHECK (type IN (
+                            'canape', 'fauteuil', 'table', 'lit', 'armoire', 'cuisine',
+                            'television', 'meuble_tv', 'table_basse', 'chaise', 'bureau',
+                            'table_chevet', 'commode'
+                        )),
+                        position_x REAL NOT NULL DEFAULT 0,
+                        position_z REAL NOT NULL DEFAULT 0,
+                        largeur REAL NOT NULL,
+                        profondeur REAL NOT NULL,
+                        hauteur REAL NOT NULL,
+                        rotation REAL NOT NULL DEFAULT 0,
+                        FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
+                    )
+                """)
+                connexion.execute("""
+                    INSERT INTO meubles_pieces_3d_nouveau
+                        (id, piece_id, type, position_x, position_z, largeur, profondeur, hauteur, rotation)
+                    SELECT id, piece_id, type, position_x, position_z, largeur, profondeur, hauteur, rotation
+                    FROM meubles_pieces_3d
+                """)
+                connexion.execute("DROP TABLE meubles_pieces_3d")
+                connexion.execute("ALTER TABLE meubles_pieces_3d_nouveau RENAME TO meubles_pieces_3d")
             connexion.execute("""
                 CREATE TABLE IF NOT EXISTS elements_installation_3d (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
