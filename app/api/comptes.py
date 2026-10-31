@@ -7,15 +7,16 @@ from pathlib import Path
 
 import jwt
 from fastapi import APIRouter, HTTPException, Request
-from app.core.security import JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET
+from app.core.security import JWT_AUDIENCE, JWT_ISSUER, get_jwt_secret
 from app.core.config import get_settings
 from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 
 router = APIRouter(prefix="/comptes", tags=["Comptes"])
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DB_PATH = BASE_DIR / "comptes.db"
+from app.core.config import get_settings
+
+DB_PATH = get_settings().accounts_db_file
 
 password_hash = PasswordHash.recommended()
 HASH_MOT_DE_PASSE_INVALIDE = password_hash.hash("invalid-password-placeholder")
@@ -179,7 +180,7 @@ def connecter_utilisateur(donnees: Connexion, request: Request):
             "iss": JWT_ISSUER,
             "aud": JWT_AUDIENCE,
         },
-        JWT_SECRET,
+        get_jwt_secret(),
         algorithm="HS256",
     )
 
