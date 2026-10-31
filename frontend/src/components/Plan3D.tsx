@@ -34,8 +34,9 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
-function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement }: {
+function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement }: {
   piece: PiecePlan;
+  pieces: PiecePlan[];
   mur: Ouverture["mur"];
   ouvertures: Ouverture[];
   materiau: { color: string; transparent: boolean; opacity: number; roughness: number; depthWrite: boolean };
@@ -203,7 +204,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
         const ouverturesVoisin = voisin
           ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
           : [];
-        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} />;
+        return <MurAvecOuvertures key={mur} piece={piece} pieces={pieces} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} />;
       })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
