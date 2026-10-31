@@ -28,3 +28,5 @@
 .plan3d-opening-form label { display: grid; gap: 6px; color: #aebbd0; font-size: 12px; }
 .plan3d-opening-form input, .plan3d-opening-form select { box-sizing: border-box; width: 100%; min-height: 34px; padding: 6px 8px; border: 1px solid #40516a; border-radius: 7px; background: #172438; color: #edf1fa; font: inherit; }
 .plan3d-opening-form button[type="submit"] { border-color: #376b6b; background: #193c43; color: #cffff5; }
+
+.plan3d-canvas input[type="range"] { touch-action: pan-y; }
