@@ -756,7 +756,36 @@ export default function Plan3D({ role }: { role: string }) {
       table_chevet: { type: "table_chevet", position_x: 0, position_z: 0, largeur: 0.48, profondeur: 0.4, hauteur: 0.55, rotation: 0 },
       commode: { type: "commode", position_x: 0, position_z: 0, largeur: 0.9, profondeur: 0.48, hauteur: 0.95, rotation: 0 },
     };
-    const meuble = presets[typeMeuble];
+    const meuble = { ...presets[typeMeuble] };
+    const existants = pieceSelectionnee.meubles ?? [];
+    const encombrement = (item: Pick<Meuble, "largeur" | "profondeur" | "rotation">) => {
+      const angle = item.rotation * Math.PI / 180;
+      return {
+        largeur: Math.abs(Math.cos(angle)) * item.largeur + Math.abs(Math.sin(angle)) * item.profondeur,
+        profondeur: Math.abs(Math.sin(angle)) * item.largeur + Math.abs(Math.cos(angle)) * item.profondeur,
+      };
+    };
+    const nouveau = encombrement(meuble);
+    const maxX = pieceSelectionnee.largeur / 2 - nouveau.largeur / 2;
+    const maxZ = pieceSelectionnee.profondeur / 2 - nouveau.profondeur / 2;
+    const candidats: { x: number; z: number }[] = [];
+    for (let x = -maxX; x <= maxX + 0.001; x += 0.25) {
+      for (let z = -maxZ; z <= maxZ + 0.001; z += 0.25) {
+        candidats.push({ x: Number(x.toFixed(2)), z: Number(z.toFixed(2)) });
+      }
+    }
+    candidats.sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+    const emplacement = candidats.find(({ x, z }) => existants.every((existant) => {
+      const dimensions = encombrement(existant);
+      return Math.abs(x - existant.position_x) >= (nouveau.largeur + dimensions.largeur) / 2 + 0.12
+        || Math.abs(z - existant.position_z) >= (nouveau.profondeur + dimensions.profondeur) / 2 + 0.12;
+    }));
+    if (!emplacement) {
+      setErreur("Il n'y a plus assez de place libre dans cette pièce pour ajouter ce meuble.");
+      return;
+    }
+    meuble.position_x = emplacement.x;
+    meuble.position_z = emplacement.z;
     try {
       const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/meubles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(meuble) });
       const donnees = await response.json().catch(() => ({}));
