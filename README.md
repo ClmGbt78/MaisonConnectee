@@ -235,3 +235,12 @@ Le plan 3D permet aux administrateurs d'ajouter des meubles schématiques (canap
 - Les lumières domotiques sont relues depuis l'API des appareils. Une lumière allumée est matérialisée dans la pièce correspondante par un luminaire et une source ponctuelle dont la couleur et l'intensité reprennent les réglages disponibles.
 - L'ambiance jour/nuit adapte l'éclairage général et l'apparence des luminaires. Le rendu 3D reste visuel : il ne commande pas les appareils.
 - Cette évolution ne modifie pas le schéma SQLite et ne touche pas aux données existantes.
+
+
+## Plan 3D : installation électrique et équipements domotiques
+
+Le plan 3D permet aux administrateurs d'ajouter des prises, interrupteurs et équipements domotiques dans chaque pièce. Les éléments sont conservés dans la table additive SQLite `elements_installation_3d` avec leur position, hauteur, orientation et nom de circuit. La migration utilise `CREATE TABLE IF NOT EXISTS` et ne réinitialise aucune donnée existante.
+
+Les appareils déjà enregistrés dans la domotique peuvent être associés à un repère 3D de leur pièce. Un clic sur un repère lié à un appareil compatible ouvre la commande marche/arrêt existante ; les capteurs restent en lecture seule. Les commandes passent par l'API domotique authentifiée et son adaptateur actuel de simulation : aucun matériel physique n'est piloté par cette évolution.
+
+Le rendu distingue les prises, interrupteurs et appareils, ajoute un quadrillage de finition au sol et conserve les matériaux et meubles 3D existants. Les repères sont éditables par les administrateurs et restent consultables par les autres utilisateurs. Les éléments partageant un même circuit sont reliés par un tracé schématique dans la vue 3D. Ce tracé sert au repérage visuel ; il ne constitue pas un calcul électrique ni un schéma de câblage certifié.

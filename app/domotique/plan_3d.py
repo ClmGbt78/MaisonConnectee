@@ -55,6 +55,20 @@ class Plan3DRepository:
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
                 )
             """)
+            connexion.execute("""
+                CREATE TABLE IF NOT EXISTS elements_installation_3d (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    piece_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK (type IN ('prise', 'interrupteur', 'appareil')),
+                    position_x REAL NOT NULL DEFAULT 0,
+                    position_z REAL NOT NULL DEFAULT 0,
+                    hauteur REAL NOT NULL DEFAULT 0.3,
+                    orientation TEXT NOT NULL DEFAULT 'nord',
+                    circuit TEXT NOT NULL DEFAULT 'Circuit général',
+                    appareil_id TEXT,
+                    FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
+                )
+            """)
             colonnes = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(ouvertures_pieces_3d)")}
             if "sens_ouverture" not in colonnes:
                 connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN sens_ouverture TEXT NOT NULL DEFAULT 'gauche'")
@@ -84,7 +98,7 @@ class Plan3DRepository:
                     "hauteur": 2.7,
                     "etage": 0,
                 }
-            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"])})
+            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"]), "installations": self.lister_installations(piece["id"])})
         return resultat
 
     def enregistrer(self, piece_id: str, donnees: dict) -> dict | None:
@@ -235,3 +249,46 @@ class Plan3DRepository:
         if ouverture["type"] == "porte" and ouverture["hauteur_appui"] != 0:
             raise ValueError("Une porte doit commencer au niveau du sol.")
 
+
+
+    def lister_installations(self, piece_id: str) -> list[dict]:
+        with sqlite3.connect(self.db_path) as connexion:
+            connexion.row_factory = sqlite3.Row
+            lignes = connexion.execute("SELECT * FROM elements_installation_3d WHERE piece_id=? ORDER BY id", (piece_id,)).fetchall()
+        return [dict(ligne) for ligne in lignes]
+
+    def ajouter_installation(self, piece_id: str, donnees: dict) -> dict | None:
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
+        if piece is None:
+            return None
+        self._valider_installation(piece, donnees)
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute("""INSERT INTO elements_installation_3d
+                (piece_id,type,position_x,position_z,hauteur,orientation,circuit,appareil_id)
+                VALUES (?,?,?,?,?,?,?,?)""", (piece_id, donnees["type"], donnees["position_x"], donnees["position_z"], donnees["hauteur"], donnees["orientation"], donnees["circuit"].strip(), donnees["appareil_id"]))
+            identifiant = curseur.lastrowid
+        return next(item for item in self.lister_installations(piece_id) if item["id"] == identifiant)
+
+    def modifier_installation(self, piece_id: str, element_id: int, donnees: dict) -> dict | None:
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
+        if piece is None:
+            return None
+        self._valider_installation(piece, donnees)
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute("""UPDATE elements_installation_3d SET type=?,position_x=?,position_z=?,hauteur=?,orientation=?,circuit=?,appareil_id=? WHERE id=? AND piece_id=?""",
+                (donnees["type"], donnees["position_x"], donnees["position_z"], donnees["hauteur"], donnees["orientation"], donnees["circuit"].strip(), donnees["appareil_id"], element_id, piece_id))
+        return next((item for item in self.lister_installations(piece_id) if item["id"] == element_id), None) if curseur.rowcount else None
+
+    def supprimer_installation(self, piece_id: str, element_id: int) -> bool:
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute("DELETE FROM elements_installation_3d WHERE id=? AND piece_id=?", (element_id, piece_id))
+        return curseur.rowcount > 0
+
+    @staticmethod
+    def _valider_installation(piece: dict, element: dict) -> None:
+        if abs(element["position_x"]) > piece["largeur"] / 2 or abs(element["position_z"]) > piece["profondeur"] / 2:
+            raise ValueError("L'élément doit rester dans les limites de la pièce.")
+        if element["hauteur"] > piece["hauteur"]:
+            raise ValueError("La hauteur dépasse celle de la pièce.")
+        if not element["circuit"].strip():
+            raise ValueError("Le nom du circuit est obligatoire.")

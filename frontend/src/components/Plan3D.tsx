@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
+import { Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
 import "./Plan3D.css";
@@ -17,9 +17,12 @@ type PiecePlan = {
   etage: number;
   ouvertures: Ouverture[];
   meubles: Meuble[];
+  installations: ElementInstallation[];
 };
 
 type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number; sens_ouverture: "gauche" | "droite"; angle_ouverture: number };
+type ElementInstallation = { id: number; type: "prise" | "interrupteur" | "appareil"; position_x: number; position_z: number; hauteur: number; orientation: "nord" | "sud" | "est" | "ouest"; circuit: string; appareil_id: string | null };
+type AppareilDomotique = { id: string; nom: string; piece: string; type: string; allume?: boolean; capacites?: string[] };
 type Meuble = { id: number; type: "canape" | "fauteuil" | "table" | "lit" | "armoire" | "cuisine"; position_x: number; position_z: number; largeur: number; profondeur: number; hauteur: number; rotation: number };
 type LumiereDomotique = { id: string; nom: string; piece: string; type: string; allume: boolean; luminosite?: number | null; temperature_couleur?: number | null; couleur?: string | null };
 type BrouillonOuverture = Omit<Ouverture, "id">;
@@ -261,12 +264,32 @@ function LuminairePiece3D({ lumieres, nuit }: { lumieres: LumiereDomotique[]; nu
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres }: {
+function InstallationPiece3D({ elements, appareils, nuit, commander }: { elements: ElementInstallation[]; appareils: AppareilDomotique[]; nuit: boolean; commander: (appareil: AppareilDomotique) => void }) {
+  const circuits = elements.reduce<Record<string, ElementInstallation[]>>((groupes, element) => {
+    (groupes[element.circuit] ??= []).push(element);
+    return groupes;
+  }, {});
+  return <group>
+    {Object.entries(circuits).filter(([, membres]) => membres.length > 1).map(([circuit, membres]) => <Line key={circuit} points={membres.map((element) => [element.position_x, 0.09, element.position_z] as [number, number, number])} color={nuit ? "#eab308" : "#b7791f"} lineWidth={1.5} dashed dashSize={0.12} gapSize={0.08} />)}
+    {elements.map((element) => {
+    const appareil = appareils.find((item) => item.id === element.appareil_id);
+    const couleur = element.type === "prise" ? "#e5e7eb" : element.type === "interrupteur" ? "#fbbf24" : appareil?.allume ? "#34d399" : "#64748b";
+    return <group key={element.id} position={[element.position_x, element.hauteur, element.position_z]} rotation={[0, element.orientation === "est" ? Math.PI / 2 : element.orientation === "ouest" ? -Math.PI / 2 : element.orientation === "sud" ? Math.PI : 0, 0]}
+      onClick={(event) => { if (appareil) { event.stopPropagation(); commander(appareil); } }}>
+      <mesh castShadow><boxGeometry args={[element.type === "appareil" ? 0.22 : 0.14, element.type === "prise" ? 0.13 : 0.2, 0.055]} /><meshStandardMaterial color={couleur} roughness={0.45} metalness={0.12} /></mesh>
+      {element.type === "prise" && <><mesh position={[-0.035, 0, 0.031]}><sphereGeometry args={[0.012, 8, 6]} /><meshStandardMaterial color="#334155" /></mesh><mesh position={[0.035, 0, 0.031]}><sphereGeometry args={[0.012, 8, 6]} /><meshStandardMaterial color="#334155" /></mesh></>}
+      {element.type === "interrupteur" && <mesh position={[0, 0, 0.034]}><boxGeometry args={[0.045, 0.075, 0.012]} /><meshStandardMaterial color="#f8fafc" /></mesh>}
+      <Html position={[0, 0.18, 0]} center distanceFactor={11} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}><span className={nuit ? "plan3d-install-label plan3d-install-label-night" : "plan3d-install-label"}>{appareil?.nom ?? (element.type === "prise" ? "Prise" : element.type === "interrupteur" ? "Interrupteur" : "Équipement")} · {element.circuit}</span></Html>
+    </group>;
+  })}</group>;
+}
+
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander }: {
   piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
-  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[];
+  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;
 }) {
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
@@ -275,10 +298,12 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
       {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
+      <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
       </mesh>
+      <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
       {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
         const voisin = mursCoincidents(piece, mur, pieces);
         if (voisin && piece.id.localeCompare(voisin.id) > 0) return null;
@@ -302,6 +327,10 @@ export default function Plan3D({ role }: { role: string }) {
   const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
   const [pasGrille, setPasGrille] = useState(0.1);
   const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
+  const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
+  const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
+  const [appareilInstallation, setAppareilInstallation] = useState("");
+  const [circuitInstallation, setCircuitInstallation] = useState("Circuit général");
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
   const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
   const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
@@ -365,15 +394,47 @@ export default function Plan3D({ role }: { role: string }) {
       .finally(() => {
         if (actif) setChargement(false);
       });
-    apiFetch("/api/domotique/appareils?type=lumiere")
-      .then(async (response) => {
-        if (!response.ok) return [];
-        return await response.json() as LumiereDomotique[];
-      })
-      .then((donnees) => { if (actif) setLumieres(donnees); })
-      .catch(() => { /* Le plan reste consultable si le service domotique est indisponible. */ });
+    apiFetch("/api/domotique/appareils")
+      .then(async (response) => response.ok ? await response.json() as AppareilDomotique[] : [])
+      .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere").map((item) => ({ ...item, allume: item.allume ?? false })) as LumiereDomotique[]); } })
+      .catch(() => { /* Appareils facultatifs dans la vue 3D. */ });
     return () => { actif = false; };
   }, []);
+
+  const ajouterInstallation = async () => {
+    if (!pieceSelectionnee) return;
+    const payload = { type: typeInstallation, position_x: Math.max(-pieceSelectionnee.largeur / 2 + 0.15, Math.min(pieceSelectionnee.largeur / 2 - 0.15, -pieceSelectionnee.largeur / 2 + 0.3 + (pieceSelectionnee.installations?.length ?? 0) % 5 * 0.45)), position_z: -pieceSelectionnee.profondeur / 2 + 0.12, orientation: "nord", circuit: circuitInstallation, appareil_id: typeInstallation === "appareil" ? appareilInstallation || null : null };
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Impossible d'ajouter cet élément.");
+      setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: [...(piece.installations ?? []), data] } : piece));
+      setMessage("Élément électrique ajouté.");
+    } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur d'ajout."); }
+  };
+
+  const modifierInstallation = async (element: ElementInstallation, changements: Partial<ElementInstallation>) => {
+    if (!pieceSelectionnee) return;
+    const payload = { ...element, ...changements };
+    const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations/${element.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { setErreur(data.detail || "Modification de l'installation impossible."); return; }
+    setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: piece.installations.map((item) => item.id === element.id ? data : item) } : piece));
+    setErreur("");
+  };
+
+  const commanderAppareil = async (appareil: AppareilDomotique) => {
+    if (appareil.type === "capteur") { setMessage(`${appareil.nom} est consultable en lecture seule.`); return; }
+    try {
+      const response = await apiFetch(`/api/domotique/appareils/${encodeURIComponent(appareil.id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allume: !appareil.allume }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Commande refusée.");
+      setAppareils((old) => old.map((item) => item.id === appareil.id ? { ...item, ...data } : item));
+      setLumieres((old) => old.map((item) => item.id === appareil.id ? { ...item, ...data } : item));
+      setMessage(`${appareil.nom} : ${data.allume ? "allumé" : "éteint"}.`);
+      setErreur("");
+    } catch (error) { setErreur(error instanceof Error ? error.message : "Commande impossible."); }
+  };
 
   const modifier = (champ: keyof Brouillon, valeur: number) => {
     setBrouillon((ancien) => ancien ? { ...ancien, [champ]: valeur } : ancien);
@@ -574,6 +635,22 @@ export default function Plan3D({ role }: { role: string }) {
                   </div>
                 </section>
                 <section className="plan3d-openings">
+                  <h3>Électricité et équipements domotiques</h3>
+                  <div className="plan3d-opening-form">
+                    <label>Élément<select value={typeInstallation} onChange={(event) => setTypeInstallation(event.target.value as ElementInstallation["type"])}><option value="prise">Prise électrique</option><option value="interrupteur">Interrupteur</option><option value="appareil">Appareil domotique</option></select></label>
+                    {typeInstallation === "appareil" && <label>Appareil<select value={appareilInstallation} onChange={(event) => setAppareilInstallation(event.target.value)}><option value="">Choisir un appareil</option>{appareils.filter((item) => item.piece === pieceSelectionnee?.nom).map((item) => <option key={item.id} value={item.id}>{item.nom} ({item.type})</option>)}</select></label>}
+                    <label>Circuit électrique<input value={circuitInstallation} maxLength={80} onChange={(event) => setCircuitInstallation(event.target.value)} /></label>
+                    <button type="button" onClick={() => void ajouterInstallation()}>Ajouter au plan</button>
+                  </div>
+                  {(pieceSelectionnee?.installations ?? []).map((element) => <div className="plan3d-opening-row" key={element.id}>
+                    <span>{element.type === "prise" ? "Prise" : element.type === "interrupteur" ? "Interrupteur" : appareils.find((item) => item.id === element.appareil_id)?.nom ?? "Appareil"} · {element.circuit}</span>
+                    <label className="plan3d-furniture-control">X <input aria-label="Position X de l'installation" type="number" step="0.1" defaultValue={element.position_x} onBlur={(event) => void modifierInstallation(element, { position_x: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">Z <input aria-label="Position Z de l'installation" type="number" step="0.1" defaultValue={element.position_z} onBlur={(event) => void modifierInstallation(element, { position_z: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">H (m) <input aria-label="Hauteur de l'installation" type="number" min="0.05" max="4.5" step="0.05" defaultValue={element.hauteur} onBlur={(event) => void modifierInstallation(element, { hauteur: Number(event.target.value) })} /></label>
+                    <button type="button" onClick={async () => { const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations/${element.id}`, { method: "DELETE" }); if (response.ok) setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: piece.installations.filter((item) => item.id !== element.id) } : piece)); else setErreur("Suppression impossible."); }}>Retirer</button>
+                  </div>)}
+                </section>
+                <section className="plan3d-openings">
                   <h3>Mobilier 3D</h3>
                   <div className="plan3d-opening-form">
                     <label>Type de meuble<select value={typeMeuble} onChange={(event) => setTypeMeuble(event.target.value as Meuble["type"])}><option value="canape">Canapé</option><option value="fauteuil">Fauteuil</option><option value="table">Table</option><option value="lit">Lit</option><option value="armoire">Armoire</option><option value="cuisine">Meuble de cuisine</option></select></label>
@@ -602,7 +679,7 @@ export default function Plan3D({ role }: { role: string }) {
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
@@ -610,7 +687,7 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les lumières domotiques allumées sont représentées comme des sources lumineuses colorées dans leur pièce ; le rendu ne commande pas les appareils.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
     </div>
   );
 }
