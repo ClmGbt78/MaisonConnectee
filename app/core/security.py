@@ -1,21 +1,24 @@
-import os
 import sqlite3
-from pathlib import Path
 
 import jwt
-from dotenv import load_dotenv
 from fastapi import Depends, Header, HTTPException
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-load_dotenv(BASE_DIR / ".env")
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET est absent du fichier .env")
+from app.core.config import get_settings
 
 JWT_ISSUER = "maison-connectee"
 JWT_AUDIENCE = "maison-connectee-frontend"
-DB_PATH = BASE_DIR / "comptes.db"
+DB_PATH = get_settings().accounts_db_file
+
+
+def get_jwt_secret() -> str:
+    """Retourne le secret JWT après validation minimale de sa configuration."""
+    secret = get_settings().jwt_secret.strip()
+    if len(secret) < 32 or secret == "replace-with-a-random-secret-before-starting":
+        raise RuntimeError(
+            "JWT_SECRET doit contenir au moins 32 caractères aléatoires. "
+            "Configure cette valeur dans le fichier .env ou l'environnement."
+        )
+    return secret
 
 
 def get_current_user(authorization: str | None = Header(default=None)) -> dict:
@@ -38,7 +41,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
     try:
         payload = jwt.decode(
             token,
-            JWT_SECRET,
+            get_jwt_secret(),
             algorithms=["HS256"],
             issuer=JWT_ISSUER,
             audience=JWT_AUDIENCE,
