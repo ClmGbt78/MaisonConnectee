@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
+import Plan3DOptions from "./Plan3DOptions";
 import "./Plan3D.css";
 
 type PiecePlan = {
@@ -25,6 +26,8 @@ type ElementInstallation = { id: number; type: "prise" | "interrupteur" | "appar
 type AppareilDomotique = { id: string; nom: string; piece: string; type: string; allume?: boolean; capacites?: string[] };
 type Meuble = { id: number; type: "canape" | "fauteuil" | "table" | "lit" | "armoire" | "cuisine"; position_x: number; position_z: number; largeur: number; profondeur: number; hauteur: number; rotation: number };
 type LumiereDomotique = { id: string; nom: string; piece: string; type: string; allume: boolean; luminosite?: number | null; temperature_couleur?: number | null; couleur?: string | null };
+type FinitionSurface = { materiau: string; couleur: string };
+type FinitionsPiece = { piece_id: string; mur_interieur: FinitionSurface; mur_exterieur: FinitionSurface; sol: FinitionSurface; plafond: FinitionSurface };
 type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
@@ -103,7 +106,7 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
-function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement, peutModifier }: {
+function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement, peutModifier, finition }: {
   piece: PiecePlan;
   pieces: PiecePlan[];
   mur: Ouverture["mur"];
@@ -146,7 +149,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
   return <group position={position} rotation={[0, rotation, 0]}>
     <mesh castShadow receiveShadow>
       <primitive object={geometry} attach="geometry" />
-      <meshStandardMaterial {...materiau} side={2} />
+      <meshStandardMaterial attach="material-0" {...materiau} color={finition?.mur_interieur.couleur ?? materiau.color} side={2} />\n      <meshStandardMaterial attach="material-1" {...materiau} color={finition?.mur_exterieur.couleur ?? materiau.color} side={2} />
     </mesh>
     {ouvertures.map((ouverture) => {
       const pieceOuverture = pieces.find((candidate) => candidate.ouvertures?.some((item) => item.id === ouverture.id)) ?? piece;
@@ -284,8 +287,8 @@ function InstallationPiece3D({ elements, appareils, nuit, commander }: { element
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander }: {
-  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition }: {
+  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
@@ -312,7 +315,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
         const ouverturesVoisin = voisin
           ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
           : [];
-        return <MurAvecOuvertures key={mur} piece={piece} pieces={pieces} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} peutModifier={peutModifier} />;
+        return <MurAvecOuvertures key={mur} piece={piece} pieces={pieces} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} peutModifier={peutModifier} finition={finition} />;
       })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
@@ -326,7 +329,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [selection, setSelection] = useState("");
   const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
   const [pasGrille, setPasGrille] = useState(0.1);
-  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
+  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);\n  const [finitions, setFinitions] = useState<Record<string, FinitionsPiece>>({});
   const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
   const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
   const [appareilInstallation, setAppareilInstallation] = useState("");
@@ -343,7 +346,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
-  const nuit = ambiance === "nuit";
+  const nuit = ambiance === "nuit";\n  const recevoirFinition = (pieceId: string, valeur: FinitionsPiece) => setFinitions((old) => ({ ...old, [pieceId]: valeur }));
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
 
@@ -672,14 +675,14 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
           {message && <p className="plan3d-success" role="status">{message}</p>}
           {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
-          <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
+          <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />\n          <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
             <Canvas key={reset} shadows camera={{ position: [planLargeur * 0.85, 12, planProfondeur * 0.85], fov: 42 }}>
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
