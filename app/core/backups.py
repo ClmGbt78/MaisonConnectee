@@ -8,7 +8,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 NOMS_BASES = ("comptes.db", "systeme_historique.db")
-FORMAT_IDENTIFIANT = re.compile(r"^\\d{8}T\\d{12}Z$")
+FORMAT_IDENTIFIANT = re.compile(r"^\d{8}T\d{12}Z$")
 
 
 class GestionnaireSauvegardes:
