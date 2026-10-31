@@ -118,6 +118,44 @@ class Plan3DRepository:
             if "angle_ouverture" not in colonnes:
                 connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN angle_ouverture INTEGER NOT NULL DEFAULT 90")
 
+    def importer_plan_rez_de_chaussee(self) -> list[dict]:
+        """Cree une premiere reconstruction editable du plan papier fourni.
+
+        Les cotes exterieures lisibles (11,72 x 9,00 m) servent de reference.
+        Les pieces sont volontairement rectangulaires et approximatives :
+        l'utilisateur peut ensuite affiner les murs, portes et positions dans l'editeur.
+        Les pieces existantes ne sont jamais supprimees ni leurs appareils deplaces.
+        """
+        plan = [
+            ("Cage d'escalier", "Emprise de l'ancienne chambre 3", "#8B9BAA", -4.46, -2.40, 2.80, 4.20),
+            ("Salon", "Rez-de-chaussée", "#D6B58A", -1.50, -2.40, 3.10, 4.20),
+            ("Séjour", "Rez-de-chaussée", "#D6B58A", 2.10, -2.40, 4.10, 4.20),
+            ("Garage", "Rez-de-chaussée", "#8796A5", 7.36, -2.50, 3.00, 5.00),
+            ("Bains", "Rez-de-chaussée", "#76AFC0", -4.30, 1.10, 2.20, 1.80),
+            ("WC", "Rez-de-chaussée", "#76AFC0", -1.90, 1.10, 1.50, 1.50),
+            ("Dégagement", "Rez-de-chaussée", "#B5A6C8", 0.00, 0.70, 3.00, 1.50),
+            ("Chambre 1-2", "Anciennes chambres 1 et 2 réunies", "#91B78C", -2.90, 4.50, 5.80, 3.00),
+            ("Entrée", "Rez-de-chaussée", "#B5A6C8", 1.00, 3.50, 1.80, 2.00),
+            ("Cuisine", "Rez-de-chaussée", "#D6B58A", 3.60, 3.00, 2.80, 3.00),
+        ]
+        existantes = {piece["nom"].casefold(): piece for piece in self.pieces.lister()}
+        for nom, description, couleur, x, z, largeur, profondeur in plan:
+            piece = existantes.get(nom.casefold())
+            if piece is None:
+                try:
+                    piece = self.pieces.ajouter(nom, description, couleur)
+                except sqlite3.IntegrityError:
+                    piece = next((p for p in self.pieces.lister() if p["nom"].casefold() == nom.casefold()), None)
+            if piece is None:
+                raise ValueError(f"Impossible de creer la piece {nom}.")
+            resultat = self.enregistrer(piece["id"], {
+                "position_x": x, "position_z": z, "largeur": largeur,
+                "profondeur": profondeur, "hauteur": 2.7, "etage": 0, "forme": None,
+            })
+            if resultat is None:
+                raise ValueError(f"Impossible d'enregistrer la geometrie de {nom}.")
+        return self.lister()
+
     def lister(self) -> list[dict]:
         pieces = self.pieces.lister()
         with sqlite3.connect(self.db_path) as connexion:
