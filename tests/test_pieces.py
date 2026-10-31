@@ -96,3 +96,53 @@ def test_suppression_piece_nettoie_les_donnees_du_plan_3d(pieces):
         assert connexion.execute(
             "SELECT COUNT(*) FROM meubles_pieces_3d WHERE piece_id = ?", (piece["id"],)
         ).fetchone()[0] == 0
+
+def test_suppression_piece_supprime_appareils_automatisations_et_dependances(pieces):
+    from app.domotique.automations import AutomatisationRepository
+    from app.domotique.configuration_capteurs import ConfigurationCapteursRepository
+    from app.domotique.plan_3d import Plan3DRepository
+
+    appareils = AppareilRepository(pieces.db_path)
+    automatisations = AutomatisationRepository(pieces.db_path)
+    automatisations.initialiser()
+    configurations = ConfigurationCapteursRepository(pieces.db_path)
+    configurations.initialiser()
+    plan = Plan3DRepository(pieces.db_path)
+    plan.initialiser()
+
+    piece = pieces.ajouter("Pièce à supprimer", "", "#365B78")
+    appareils.ajouter({
+        "id": "capteur-piece-a-supprimer", "nom": "Capteur de test",
+        "piece": piece["nom"], "type": "capteur",
+    })
+    appareils.ajouter({
+        "id": "lampe-piece-a-supprimer", "nom": "Lampe de test",
+        "piece": piece["nom"], "type": "lumiere",
+    })
+    automatisations.ajouter({
+        "nom": "Horaire de la pièce", "heure": "20:00", "jours": [1],
+        "scene_id": "scene-test", "piece": piece["nom"], "extinction_minutes": None,
+    })
+    automatisations.ajouter_conditionnelle({
+        "nom": "Règle du capteur supprimé",
+        "capteur_id": "capteur-piece-a-supprimer",
+        "condition": "presence_detectee", "scene_id": "scene-test",
+        "piece": "Bureau",
+    })
+    automatisations.programmer_extinction(piece["nom"], 30)
+    automatisations.enregistrer_mesure("capteur-piece-a-supprimer", "presence", 1)
+    configurations.enregistrer("capteur-piece-a-supprimer", "COM99", 9600)
+    plan.enregistrer(piece["id"], {
+        "position_x": 0, "position_z": 0, "largeur": 4,
+        "profondeur": 3, "hauteur": 2.7, "etage": 0,
+    })
+
+    assert pieces.supprimer(piece["id"]) == piece["nom"]
+    assert appareils.lister(piece=piece["nom"]) == []
+    assert automatisations.lister() == []
+    assert automatisations.lister_conditionnelles() == []
+    assert automatisations.lister_mesures() == []
+    assert configurations.lister() == []
+    with sqlite3.connect(pieces.db_path) as connexion:
+        assert connexion.execute("SELECT COUNT(*) FROM extinctions_differees").fetchone()[0] == 0
+        assert connexion.execute("SELECT COUNT(*) FROM geometrie_pieces_3d WHERE piece_id = ?", (piece["id"],)).fetchone()[0] == 0
