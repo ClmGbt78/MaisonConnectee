@@ -351,10 +351,57 @@ export default function Plan3D({ role }: { role: string }) {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
+  const [nomNouvellePiece, setNomNouvellePiece] = useState("");
+  const [descriptionNouvellePiece, setDescriptionNouvellePiece] = useState("");
+  const [couleurNouvellePiece, setCouleurNouvellePiece] = useState("#365B78");
+  const [creationPiece, setCreationPiece] = useState(false);
   const nuit = ambiance === "nuit";
   const recevoirFinition = useCallback((pieceId: string, valeur: FinitionsPiece) => setFinitions((old) => ({ ...old, [pieceId]: valeur })), []);
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
+
+  const ajouterPiece = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nom = nomNouvellePiece.trim();
+    if (!nom || creationPiece) return;
+    setCreationPiece(true);
+    setErreur("");
+    setMessage("");
+    try {
+      const response = await apiFetch("/api/domotique/pieces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom,
+          description: descriptionNouvellePiece.trim(),
+          couleur: couleurNouvellePiece,
+        }),
+      });
+      const resultat = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(resultat.detail || "Impossible de créer la pièce.");
+      }
+      const planResponse = await apiFetch("/api/domotique/plan-3d");
+      if (!planResponse.ok) {
+        throw new Error("La pièce est créée, mais son plan 3D n'a pas pu être rechargé. Utilise Actualiser.");
+      }
+      const donnees = await planResponse.json() as PiecePlan[];
+      setPieces(donnees);
+      const nouvellePiece = donnees.find((piece) => piece.id === resultat.id);
+      if (nouvellePiece) {
+        setSelection(nouvellePiece.id);
+        setBrouillon(creerBrouillon(nouvellePiece));
+        setEtageAffiche("tous");
+      }
+      setNomNouvellePiece("");
+      setDescriptionNouvellePiece("");
+      setMessage("La pièce « " + nom + " » a été ajoutée au plan 3D. Ajuste ses dimensions et sa position puis enregistre.");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors de la création de la pièce.");
+    } finally {
+      setCreationPiece(false);
+    }
+  };
 
   const chargerLumieres = useCallback(async () => {
     try {
@@ -607,7 +654,23 @@ export default function Plan3D({ role }: { role: string }) {
 
       {chargement && <p className="plan3d-status">Chargement des pièces…</p>}
       {erreur && <p className="plan3d-error" role="alert">{erreur}</p>}
-      {!chargement && !erreur && pieces.length === 0 && <p className="plan3d-status">Crée d'abord tes pièces dans la page Domotique.</p>}
+      {message && <p className="plan3d-success" role="status">{message}</p>}
+      {role === "admin" && (
+        <form className="plan3d-room-form plan3d-create-room-form" onSubmit={(event) => void ajouterPiece(event)}>
+          <h3>Ajouter une pièce</h3>
+          <label>Nom de la pièce
+            <input value={nomNouvellePiece} onChange={(event) => setNomNouvellePiece(event.target.value)} maxLength={60} required placeholder="Ex. Chambre parentale" />
+          </label>
+          <label>Description (facultative)
+            <input value={descriptionNouvellePiece} onChange={(event) => setDescriptionNouvellePiece(event.target.value)} maxLength={240} placeholder="Ex. Chambre à l'étage" />
+          </label>
+          <label>Couleur de la pièce
+            <input type="color" value={couleurNouvellePiece} onChange={(event) => setCouleurNouvellePiece(event.target.value)} />
+          </label>
+          <button type="submit" disabled={creationPiece || !nomNouvellePiece.trim()}>{creationPiece ? "Création…" : "Ajouter au plan 3D"}</button>
+        </form>
+      )}
+      {!chargement && !erreur && pieces.length === 0 && role !== "admin" && <p className="plan3d-status">Aucune pièce n'est encore disponible dans le plan 3D.</p>}
 
       {pieces.length > 0 && (
         <>
