@@ -166,6 +166,25 @@ class Plan3DRepository:
                 raise ValueError("Chaque mur doit mesurer au moins 50 cm.")
         def orientation(a, b, c):
             return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+        def sur_segment(a, b, point):
+            return (
+                min(a[0], b[0]) - 1e-9 <= point[0] <= max(a[0], b[0]) + 1e-9
+                and min(a[1], b[1]) - 1e-9 <= point[1] <= max(a[1], b[1]) + 1e-9
+            )
+
+        def segments_se_croisent(a, b, c, d):
+            o1, o2 = orientation(a, b, c), orientation(a, b, d)
+            o3, o4 = orientation(c, d, a), orientation(c, d, b)
+            if o1 * o2 < 0 and o3 * o4 < 0:
+                return True
+            return (
+                (abs(o1) < 1e-9 and sur_segment(a, b, c))
+                or (abs(o2) < 1e-9 and sur_segment(a, b, d))
+                or (abs(o3) < 1e-9 and sur_segment(c, d, a))
+                or (abs(o4) < 1e-9 and sur_segment(c, d, b))
+            )
+
         n = len(points)
         for i in range(n):
             a, b = points[i], points[(i + 1) % n]
@@ -173,7 +192,7 @@ class Plan3DRepository:
                 if j in (i, (i + 1) % n) or (j + 1) % n in (i, (i + 1) % n):
                     continue
                 d, e = points[j], points[(j + 1) % n]
-                if orientation(a, b, d) * orientation(a, b, e) < 0 and orientation(d, e, a) * orientation(d, e, b) < 0:
+                if segments_se_croisent(a, b, d, e):
                     raise ValueError("Les murs ne peuvent pas se croiser.")
 
     def _lister_meubles(self, piece_id: str) -> list[dict]:
