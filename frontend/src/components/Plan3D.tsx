@@ -34,12 +34,14 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
-function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit }: {
+function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement }: {
   piece: PiecePlan;
   mur: Ouverture["mur"];
   ouvertures: Ouverture[];
   materiau: { color: string; transparent: boolean; opacity: number; roughness: number; depthWrite: boolean };
   nuit: boolean;
+  deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
+  validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
 }) {
   const longueur = mur === "nord" || mur === "sud" ? piece.largeur : piece.profondeur;
   const geometry = useMemo(() => {
@@ -77,6 +79,8 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit }: {
     </mesh>
     {ouvertures.map((ouverture) => {
       const fenetre = ouverture.type === "fenetre";
+      const positionMin = -longueur / 2 + ouverture.largeur / 2;
+      const positionMax = longueur / 2 - ouverture.largeur / 2;
       const largeurCadre = 0.055;
       const profondeurCadre = 0.055;
       const hauteurCadre = 0.055;
@@ -85,6 +89,23 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit }: {
       const materiauCadre = nuit ? "#c3cedb" : "#f8fafc";
       return (
         <group key={ouverture.id} position={[ouverture.position, ouverture.hauteur_appui, 0.075]}>
+          <Html position={[0, ouverture.hauteur + 0.16, 0.12]} center transform distanceFactor={9} style={{ pointerEvents: "auto", width: "112px" }}>
+            <input
+              aria-label={`Déplacer ${fenetre ? "la fenêtre" : "la porte"} sur le mur`}
+              title="Faire glisser pour déplacer sur le mur"
+              type="range"
+              min={positionMin}
+              max={positionMax}
+              step={0.05}
+              value={Math.min(positionMax, Math.max(positionMin, ouverture.position))}
+              onChange={(event) => deplacer(piece.id, ouverture.id, Number(event.target.value))}
+              onPointerUp={(event) => validerDeplacement(piece, ouverture, Number((event.currentTarget as HTMLInputElement).value))}
+              onKeyUp={(event) => {
+                if (event.key.startsWith("Arrow")) validerDeplacement(piece, ouverture, Number((event.currentTarget as HTMLInputElement).value));
+              }}
+              style={{ width: "112px", accentColor: "#38bdf8", cursor: "ew-resize" }}
+            />
+          </Html>
           <mesh position={[-ouverture.largeur / 2 + largeurCadre / 2, ouverture.hauteur / 2, 0]} castShadow>
             <boxGeometry args={[largeurCadre, ouverture.hauteur, profondeurCadre]} />
             <meshStandardMaterial color={materiauCadre} roughness={0.55} />
@@ -159,7 +180,11 @@ function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PieceP
   });
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit }: { piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean }) {
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement }: {
+  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean;
+  deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
+  validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
+}) {
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
@@ -177,7 +202,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit }: { piece: PiecePlan; pi
         const ouverturesVoisin = voisin
           ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
           : [];
-        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} />;
+        return <MurAvecOuvertures key={mur} piece={piece} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} />;
       })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
@@ -304,6 +329,33 @@ export default function Plan3D({ role }: { role: string }) {
     setMessage("Ouverture supprimée.");
   };
 
+  const deplacerOuverture = (pieceId: string, ouvertureId: number, position: number) => {
+    setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceId
+      ? { ...piece, ouvertures: (piece.ouvertures ?? []).map((ouverture) => ouverture.id === ouvertureId ? { ...ouverture, position } : ouverture) }
+      : piece));
+  };
+
+  const validerDeplacementOuverture = async (piece: PiecePlan, ouverture: Ouverture, position: number) => {
+    const positionLimitee = Math.max(-(piece.largeur > 0 ? (ouverture.mur === "nord" || ouverture.mur === "sud" ? piece.largeur : piece.profondeur) : 0) / 2 + ouverture.largeur / 2,
+      Math.min((ouverture.mur === "nord" || ouverture.mur === "sud" ? piece.largeur : piece.profondeur) / 2 - ouverture.largeur / 2, position));
+    const miseAJour = { ...ouverture, position: positionLimitee };
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${piece.id}/ouvertures/${ouverture.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(miseAJour),
+      });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Déplacement impossible.");
+      setPieces((anciennes) => anciennes.map((item) => item.id === piece.id
+        ? { ...item, ouvertures: (item.ouvertures ?? []).map((ouvertureExistante) => ouvertureExistante.id === ouverture.id ? donnees : ouvertureExistante) }
+        : item));
+      setMessage("Position de l'ouverture enregistrée.");
+      setErreur("");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors du déplacement.");
+      void charger();
+    }
+  };
+
   const piecesVisibles = etageAffiche === "tous" ? pieces : pieces.filter((piece) => piece.etage === Number(etageAffiche));
   const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + piece.largeur / 2 + 3), 16);
   const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + piece.profondeur / 2 + 3), 16);
@@ -374,11 +426,11 @@ export default function Plan3D({ role }: { role: string }) {
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.7 : 2} castShadow />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
-            <div className="plan3d-hint">Glisser : tourner · Molette : zoomer · Clic droit : déplacer</div>
+            <div className="plan3d-hint">Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
         </>
       )}
