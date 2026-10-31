@@ -17,7 +17,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [finitions, setFinitions] = useState<Finitions[]>([]);
   const [pieceId, setPieceId] = useState("");
-  const [edition, setEdition] = useState<Finitions>({ piece_id: "", mur_interieur: { ...defaut }, mur_exterieur: { materiau: "enduit", couleur: "#d6d3d1" }, sol: { materiau: "carrelage", couleur: "#b8c7d8" }, plafond: { materiau: "platre", couleur: "#f1f5f9" } });
+  const [editionLocale, setEditionLocale] = useState<Finitions | null>(null);\n  const edition = editionLocale ?? finitions.find((item) => item.piece_id === pieceId) ?? { piece_id: pieceId, mur_interieur: { ...defaut }, mur_exterieur: { materiau: "enduit", couleur: "#d6d3d1" }, sol: { materiau: "carrelage", couleur: "#b8c7d8" }, plafond: { materiau: "platre", couleur: "#f1f5f9" } };
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [nom, setNom] = useState("");
   const [description, setDescription] = useState("");
@@ -43,13 +43,13 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
     setEdition(sauvegardee ?? { piece_id: pieceId, mur_interieur: { ...defaut }, mur_exterieur: { materiau: "enduit", couleur: "#d6d3d1" }, sol: { materiau: "carrelage", couleur: "#b8c7d8" }, plafond: { materiau: "platre", couleur: "#f1f5f9" } });
   }, [pieceId, finitions]);
 
-  const modifierFinition = (zone: keyof Omit<Finitions, "piece_id">, changement: Partial<Finition>) => setEdition((old) => ({ ...old, [zone]: { ...old[zone], ...changement } }));
+  const modifierFinition = (zone: keyof Omit<Finitions, "piece_id">, changement: Partial<Finition>) => setEditionLocale((old) => { const base = old ?? edition; return { ...base, [zone]: { ...base[zone], ...changement } }; });
   const enregistrerFinitions = async () => {
     const response = await apiFetch(`/api/domotique/plan-3d/${pieceId}/finitions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mur_interieur: edition.mur_interieur, mur_exterieur: edition.mur_exterieur, sol: edition.sol, plafond: edition.plafond }) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { setErreur(data.detail || "Enregistrement des finitions impossible."); return; }
     const valeur = data as Finitions;
-    setFinitions((old) => [...old.filter((item) => item.piece_id !== pieceId), valeur]);
+    setFinitions((old) => [...old.filter((item) => item.piece_id !== pieceId), valeur]);\n    setEditionLocale(valeur);
     onFinitionChange(pieceId, valeur);
     setMessage("Finitions enregistrées pour cette pièce."); setErreur("");
   };
@@ -81,7 +81,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
       <h3>Finitions de la maison</h3>
       <p>Personnalise les matériaux et les couleurs pièce par pièce. Les changements sont enregistrés dans la base locale.</p>
       <div className="plan3d-options-grid">
-        <label>Pièce<select value={pieceId} onChange={(event) => setPieceId(event.target.value)}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
+        <label>Pièce<select value={pieceId} onChange={(event) => { setPieceId(event.target.value); setEditionLocale(null); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
         {(["mur_interieur", "mur_exterieur", "sol", "plafond"] as const).map((zone) => <div className="plan3d-finish-control" key={zone}>
           <strong>{{ mur_interieur: "Murs intérieurs", mur_exterieur: "Murs extérieurs", sol: "Sol", plafond: "Plafond" }[zone]}</strong>
           <label>Matériau<select value={edition[zone].materiau} onChange={(event) => modifierFinition(zone, { materiau: event.target.value })}>{materiaux.map((item) => <option key={item} value={item}>{item.replace("_", " ")}</option>)}</select></label>
