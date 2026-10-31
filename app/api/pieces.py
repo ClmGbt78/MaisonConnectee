@@ -8,7 +8,11 @@ from app.domotique.pieces import PiecesRepository
 
 router = APIRouter(prefix="/domotique/pieces", tags=["Pièces"])
 repository = PiecesRepository()
-repository.initialiser()
+
+
+def initialiser_stockage() -> None:
+    """Initialise le stockage des pièces au démarrage de l'application."""
+    repository.initialiser()
 
 
 class DonneesPiece(BaseModel):

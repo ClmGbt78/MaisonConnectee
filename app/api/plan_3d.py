@@ -6,7 +6,11 @@ from app.domotique.plan_3d import Plan3DRepository
 
 router = APIRouter(prefix="/domotique/plan-3d", tags=["Plan 3D"])
 repository = Plan3DRepository()
-repository.initialiser()
+
+
+def initialiser_stockage() -> None:
+    """Initialise le stockage du plan 3D au démarrage de l'application."""
+    repository.initialiser()
 
 
 class GeometriePiece(BaseModel):

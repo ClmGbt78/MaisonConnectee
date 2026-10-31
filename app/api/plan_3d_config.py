@@ -9,7 +9,11 @@ from app.domotique.plan_3d_config import ConfigurationPlan3DRepository
 
 router = APIRouter(prefix="/domotique/plan-3d", tags=["Scénarios et finitions 3D"])
 repository = ConfigurationPlan3DRepository()
-repository.initialiser()
+
+
+def initialiser_stockage() -> None:
+    """Initialise les scénarios et finitions 3D au démarrage."""
+    repository.initialiser()
 
 
 class Finition(BaseModel):
