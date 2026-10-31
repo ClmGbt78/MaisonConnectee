@@ -68,10 +68,11 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
   };
   const materiau = (color: string) => <meshStandardMaterial color={color} roughness={["table", "armoire", "cuisine", "meuble_tv", "table_basse", "chaise", "bureau", "table_chevet", "commode"].includes(meuble.type) ? 0.42 : meuble.type === "television" ? 0.22 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
-    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
+    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z };  } : undefined}
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
     onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
-    onPointerCancel={() => { glisse.current = false; }}>
+    onPointerCancel={() => { glisse.current = false; }}
+    onPointerLeave={() => { glisse.current = false; }}>
     {meuble.type === "armoire" && <RoundedBox position={[0, meuble.hauteur / 2, 0]} args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} radius={0.025} smoothness={3} castShadow receiveShadow>{materiau(couleur)}</RoundedBox>}
     {selectionne && <mesh position={[0, meuble.hauteur / 2, 0]}><boxGeometry args={[meuble.largeur + 0.055, meuble.hauteur + 0.055, meuble.profondeur + 0.055]} /><meshBasicMaterial color="#38bdf8" wireframe transparent opacity={0.9} depthTest={false} /></mesh>}
     {meuble.type === "canape" && (() => {
@@ -387,29 +388,46 @@ function InstallationPiece3D({ elements, appareils, nuit, commander }: { element
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition }: {
-  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
+function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition, deplacerPiece }: {
+  piece: PiecePlan; pieces: PiecePlan[]; elevation: number; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
   selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;
+  deplacerPiece: (piece: PiecePlan, x: number, z: number, final: boolean) => void;
 }) {
   const opacite = transparence / 100;
+  const glissementPiece = useRef<{ dx: number; dz: number } | null>(null);
+  const commencerDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number }; pointerId: number; target: unknown }) => {
+    if (!peutModifier) return;
+    event.stopPropagation();
+    glissementPiece.current = { dx: event.point.x - piece.position_x, dz: event.point.z - piece.position_z };
+  };
+  const poursuivreDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number } }, final: boolean) => {
+    if (!peutModifier || !glissementPiece.current) return;
+    event.stopPropagation();
+    const x = event.point.x - glissementPiece.current.dx;
+    const z = event.point.z - glissementPiece.current.dz;
+    const xGrille = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;
+    const zGrille = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;
+    deplacerPiece(piece, Number(xGrille.toFixed(2)), Number(zGrille.toFixed(2)), final);
+    if (final) glissementPiece.current = null;
+  };
   const rugositeMur = finition?.mur_interieur.materiau === "pierre" || finition?.mur_interieur.materiau === "brique" ? 0.96 : finition?.mur_interieur.materiau === "bois" ? 0.58 : 0.82;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
   return (
-    <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
+    <group position={[piece.position_x, elevation, piece.position_z]}>
       {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       {piece.forme ? (
-        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }} onPointerLeave={() => { glissementPiece.current = null; }}>
           <shapeGeometry args={[creerShape(piece.forme)]} />
           <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} side={2} />
         </mesh>
       ) : (
-        <mesh position={[0, 0.025, 0]} receiveShadow>
+        <mesh position={[0, 0.025, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }}>
           <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
           <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
         </mesh>
@@ -466,6 +484,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [transparence, setTransparence] = useState(82);
   const [ambiance, setAmbiance] = useState<"jour" | "nuit">("jour");
   const [reset, setReset] = useState(0);
+  const [rotationVueActive, setRotationVueActive] = useState(false);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -520,6 +539,31 @@ export default function Plan3D({ role }: { role: string }) {
       setErreur(error instanceof Error ? error.message : "Erreur pendant l'import de l'étage.");
     } finally {
       setEnregistrement(false);
+    }
+  };
+
+  const renommerPiece = async (nomSaisi: string) => {
+    if (!pieceSelectionnee) return;
+    const nom = nomSaisi.trim();
+    if (!nom) { setErreur("Le nom de la pièce est obligatoire."); return; }
+    if (nom.toLocaleLowerCase() === pieceSelectionnee.nom.toLocaleLowerCase()) return;
+    setErreur("");
+    setMessage("");
+    try {
+      const response = await apiFetch(`/api/domotique/pieces/${pieceSelectionnee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom, description: "", couleur: pieceSelectionnee.couleur }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Impossible de renommer cette pièce.");
+      const ancienNom = pieceSelectionnee.nom;
+      setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, ...data } : piece));
+      setAppareils((anciens) => anciens.map((appareil) => appareil.piece === ancienNom ? { ...appareil, piece: nom } : appareil));
+      setLumieres((anciennes) => anciennes.map((lumiere) => lumiere.piece === ancienNom ? { ...lumiere, piece: nom } : lumiere));
+      setMessage(`La pièce « ${ancienNom} » a été renommée « ${nom} ».`);
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors du renommage.");
     }
   };
 
@@ -760,6 +804,45 @@ Cette opération est irréversible. Continuer ?`)) return;
 
   const supprimerSommet = (index: number) => setBrouillon((ancien) => ancien?.forme && ancien.forme.length > 4 ? { ...ancien, forme: ancien.forme.filter((_, i) => i !== index) } : ancien);
 
+  const fusionnerSommets = (index: number) => {
+    setBrouillon((ancien) => {
+      if (!ancien?.forme || ancien.forme.length <= 3) return ancien;
+      const suivant = (index + 1) % ancien.forme.length;
+      const premier = ancien.forme[index];
+      const second = ancien.forme[suivant];
+      const fusion = {
+        x: Number(((premier.x + second.x) / 2).toFixed(2)),
+        z: Number(((premier.z + second.z) / 2).toFixed(2)),
+      };
+      const forme = ancien.forme.map((sommet, i) => i === index ? fusion : sommet).filter((_, i) => i !== suivant);
+      return { ...ancien, forme };
+    });
+    setMessage("");
+  };
+
+  const deplacerPieceEntiere = useCallback(async (piece: PiecePlan, x: number, z: number, final: boolean) => {
+    setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? { ...ancienne, position_x: x, position_z: z } : ancienne));
+    if (selection === piece.id) setBrouillon((ancien) => ancien ? { ...ancien, position_x: x, position_z: z } : ancien);
+    if (!final) return;
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${piece.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position_x: x, position_z: z, largeur: piece.largeur, profondeur: piece.profondeur, hauteur: piece.hauteur, etage: piece.etage, forme: piece.forme }),
+      });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Impossible d'enregistrer le déplacement de la pièce.");
+      setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? donnees : ancienne));
+      if (selection === piece.id) setBrouillon(creerBrouillon(donnees));
+      setMessage(`La pièce « ${piece.nom} » a été déplacée et enregistrée.`);
+      setErreur("");
+    } catch (error) {
+      setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? { ...ancienne, position_x: piece.position_x, position_z: piece.position_z } : ancienne));
+      if (selection === piece.id) setBrouillon((ancien) => ancien ? { ...ancien, position_x: piece.position_x, position_z: piece.position_z } : ancien);
+      setErreur(error instanceof Error ? error.message : "Erreur lors du déplacement de la pièce.");
+    }
+  }, [selection]);
+
   const enregistrer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!pieceSelectionnee || !brouillon) return;
@@ -928,6 +1011,16 @@ Cette opération est irréversible. Continuer ?`)) return;
   };
 
   const piecesPourAffichage = pieces.map((piece) => piece.id === selection && brouillon ? { ...piece, ...brouillon } : piece);
+  // Chaque niveau démarre au-dessus du plafond le plus haut du niveau précédent.
+  // Cela évite le décalage fixe de 3,25 m et tient compte des hauteurs réellement configurées.
+  const elevationsEtages: Record<number, number> = {};
+  const niveaux = [...new Set(piecesPourAffichage.map((piece) => piece.etage))].sort((a, b) => a - b);
+  let elevationSuivante = 0;
+  for (const niveau of niveaux) {
+    elevationsEtages[niveau] = elevationSuivante;
+    const hauteurNiveau = Math.max(2, ...piecesPourAffichage.filter((piece) => piece.etage === niveau).map((piece) => piece.hauteur));
+    elevationSuivante += hauteurNiveau + 0.18;
+  }
   const piecesVisibles = etageAffiche === "tous" ? piecesPourAffichage : piecesPourAffichage.filter((piece) => piece.etage === Number(etageAffiche));
   const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.x))) : piece.largeur / 2) + 3), 16);
   const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.z))) : piece.profondeur / 2) + 3), 16);
@@ -948,6 +1041,7 @@ Cette opération est irréversible. Continuer ?`)) return;
           <select value={ambiance} onChange={(event) => setAmbiance(event.target.value as "jour" | "nuit")}><option value="jour">Jour</option><option value="nuit">Nuit</option></select>
         </label>
         <button type="button" onClick={() => setReset((value) => value + 1)}>Réinitialiser la vue</button>
+        <button type="button" aria-pressed={rotationVueActive} onClick={() => setRotationVueActive((active) => !active)}>{rotationVueActive ? "Désactiver la rotation par clic gauche" : "Activer la rotation par clic gauche"}</button>
         <button type="button" onClick={() => { void charger(); void chargerLumieres(); }} disabled={chargement}>Actualiser</button>
         {role === "admin" && <label>Alignement du mobilier<select value={pasGrille} onChange={(event) => setPasGrille(Number(event.target.value))}><option value={0}>Libre</option><option value={0.05}>5 cm</option><option value={0.1}>10 cm</option><option value={0.25}>25 cm</option><option value={0.5}>50 cm</option></select></label>}
       </div>
@@ -982,6 +1076,13 @@ Cette opération est irréversible. Continuer ?`)) return;
               <form className="plan3d-room-form" onSubmit={enregistrer}>
                 <label>Pièce à modifier<select value={selection} onChange={(event) => { const id = event.target.value; setSelection(id); setBrouillon(creerBrouillon(pieces.find((piece) => piece.id === id))); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
                 <button type="button" className="plan3d-danger-button" onClick={() => void supprimerPieceSelectionnee()} disabled={!pieceSelectionnee}>Supprimer la pièce sélectionnée</button>
+                {pieceSelectionnee && <div className="plan3d-opening-form">
+                  <label>Nouveau nom de la pièce
+                    <input id="nom-piece-a-renommer" key={pieceSelectionnee.id + ":" + pieceSelectionnee.nom} defaultValue={pieceSelectionnee.nom} maxLength={60} required />
+                  </label>
+                  <button type="button" onClick={() => void renommerPiece((document.getElementById("nom-piece-a-renommer") as HTMLInputElement | null)?.value ?? "")}>Renommer la pièce</button>
+                </div>}
+
                 {brouillon && <>
                   <label>Position X (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_x} onChange={(event) => modifier("position_x", Number(event.target.value))} /></label>
                   <label>Position Z (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_z} onChange={(event) => modifier("position_z", Number(event.target.value))} /></label>
@@ -999,9 +1100,11 @@ Cette opération est irréversible. Continuer ?`)) return;
                         <label className="plan3d-furniture-control">X (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.x} onChange={(event) => modifierSommet(index, "x", Number(event.target.value))} /></label>
                         <label className="plan3d-furniture-control">Z (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.z} onChange={(event) => modifierSommet(index, "z", Number(event.target.value))} /></label>
                         <button type="button" disabled={brouillon.forme.length <= 4} onClick={() => supprimerSommet(index)}>Retirer</button>
+                        <button type="button" disabled={brouillon.forme.length <= 3} onClick={() => fusionnerSommets(index)}>Fusionner avec le suivant</button>
                       </div>)}
                       <button type="button" disabled={brouillon.forme.length >= 12} onClick={ajouterSommet}>Ajouter un sommet sur le mur le plus long</button>
                       <button type="button" onClick={() => setBrouillon((ancien) => ancien ? { ...ancien, forme: null } : ancien)}>Revenir au rectangle</button>
+                      <p>« Fusionner avec le suivant » regroupe deux sommets voisins en un point situé à mi-distance. La forme conserve au moins trois sommets.</p>
                       <p>Les portes et fenêtres existantes sont conservées, mais ne sont pas encore affichées sur une forme libre.</p>
                     </>}
                   </section>
@@ -1069,16 +1172,39 @@ Cette opération est irréversible. Continuer ?`)) return;
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} deplacerPiece={deplacerPieceEntiere} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
-              <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
+              <group position={[0, 0.08, 0]}>
+                <mesh position={[0.68, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                  <cylinderGeometry args={[0.025, 0.025, 1.25, 8]} />
+                  <meshBasicMaterial color="#e05252" />
+                </mesh>
+                <mesh position={[1.34, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                  <coneGeometry args={[0.09, 0.2, 12]} />
+                  <meshBasicMaterial color="#e05252" />
+                </mesh>
+                <mesh position={[0, 0, 0.68]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.025, 0.025, 1.25, 8]} />
+                  <meshBasicMaterial color="#2878d0" />
+                </mesh>
+                <mesh position={[0, 0, 1.34]} rotation={[Math.PI / 2, 0, 0]}>
+                  <coneGeometry args={[0.09, 0.2, 12]} />
+                  <meshBasicMaterial color="#2878d0" />
+                </mesh>
+                <mesh><sphereGeometry args={[0.07, 12, 12]} /><meshBasicMaterial color="#64748b" /></mesh>
+                <Html position={[1.48, 0.08, 0]} center distanceFactor={10} style={{ pointerEvents: "none" }}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+X</span></Html>
+                <Html position={[-0.28, 0.08, 0]} center distanceFactor={10}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−X</span></Html>
+                <Html position={[0, 0.08, 1.5]} center distanceFactor={10} style={{ pointerEvents: "none" }}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+Z</span></Html>
+                <Html position={[0, 0.08, -0.28]} center distanceFactor={10}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−Z</span></Html>
+              </group>
+              <OrbitControls makeDefault enableDamping enablePan enableRotate={rotationVueActive} enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
-            <div className="plan3d-hint">Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
+            <div className="plan3d-hint">Faire glisser le sol d’une pièce pour déplacer toute la pièce · Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
           <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions, leur forme et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions, leur forme et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les pièces entières et les meubles peuvent être déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
     </div>
   );
 }
