@@ -392,9 +392,27 @@ function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, val
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
-  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;\n  deplacerPiece: (piece: PiecePlan, x: number, z: number, final: boolean) => void;
+  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;
+  deplacerPiece: (piece: PiecePlan, x: number, z: number, final: boolean) => void;
 }) {
-  const opacite = transparence / 100;\n  const glissementPiece = useRef<{ dx: number; dz: number } | null>(null);\n  const commencerDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number }; pointerId: number; target: unknown }) => {\n    if (!peutModifier) return;\n    event.stopPropagation();\n    glissementPiece.current = { dx: event.point.x - piece.position_x, dz: event.point.z - piece.position_z };\n    (event.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(event.pointerId);\n  };\n  const poursuivreDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number } }, final: boolean) => {\n    if (!peutModifier || !glissementPiece.current) return;\n    event.stopPropagation();\n    const x = event.point.x - glissementPiece.current.dx;\n    const z = event.point.z - glissementPiece.current.dz;\n    const xGrille = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;\n    const zGrille = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;\n    deplacerPiece(piece, Number(xGrille.toFixed(2)), Number(zGrille.toFixed(2)), final);\n    if (final) glissementPiece.current = null;\n  };
+  const opacite = transparence / 100;
+  const glissementPiece = useRef<{ dx: number; dz: number } | null>(null);
+  const commencerDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number }; pointerId: number; target: unknown }) => {
+    if (!peutModifier) return;
+    event.stopPropagation();
+    glissementPiece.current = { dx: event.point.x - piece.position_x, dz: event.point.z - piece.position_z };
+    (event.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(event.pointerId);
+  };
+  const poursuivreDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number } }, final: boolean) => {
+    if (!peutModifier || !glissementPiece.current) return;
+    event.stopPropagation();
+    const x = event.point.x - glissementPiece.current.dx;
+    const z = event.point.z - glissementPiece.current.dz;
+    const xGrille = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;
+    const zGrille = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;
+    deplacerPiece(piece, Number(xGrille.toFixed(2)), Number(zGrille.toFixed(2)), final);
+    if (final) glissementPiece.current = null;
+  };
   const rugositeMur = finition?.mur_interieur.materiau === "pierre" || finition?.mur_interieur.materiau === "brique" ? 0.96 : finition?.mur_interieur.materiau === "bois" ? 0.58 : 0.82;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
