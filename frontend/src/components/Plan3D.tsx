@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Shape, Path, ExtrudeGeometry } from "three";
@@ -24,26 +24,64 @@ type Meuble = { id: number; type: "canape" | "fauteuil" | "table" | "lit" | "arm
 type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
 
-function ObjetMeuble3D({ meuble }: { meuble: Meuble }) {
+function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer }: { meuble: Meuble; piece: PiecePlan; peutModifier: boolean; deplacer: (meuble: Meuble, x: number, z: number, final: boolean) => void }) {
   const couleurs: Record<Meuble["type"], string> = {
     canape: "#557b91", fauteuil: "#638b9d", table: "#9b704e",
     lit: "#b7c7d8", armoire: "#8b7059", cuisine: "#aeb8c2",
   };
   const couleur = couleurs[meuble.type];
-  return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}>
-    <mesh position={[0, meuble.hauteur / 2, 0]} castShadow receiveShadow>
-      <boxGeometry args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} />
-      <meshStandardMaterial color={couleur} roughness={0.78} />
-    </mesh>
+  const decalage = useRef({ x: 0, z: 0 });
+  const glisse = useRef(false);
+  const positionner = (event: { point: { x: number; z: number } }, final: boolean) => {
+    const rotation = meuble.rotation * Math.PI / 180;
+    const largeurTournee = Math.abs(Math.cos(rotation)) * meuble.largeur + Math.abs(Math.sin(rotation)) * meuble.profondeur;
+    const profondeurTournee = Math.abs(Math.sin(rotation)) * meuble.largeur + Math.abs(Math.cos(rotation)) * meuble.profondeur;
+    const x = Math.max(-piece.largeur / 2 + largeurTournee / 2, Math.min(piece.largeur / 2 - largeurTournee / 2, event.point.x - piece.position_x - decalage.current.x));
+    const z = Math.max(-piece.profondeur / 2 + profondeurTournee / 2, Math.min(piece.profondeur / 2 - profondeurTournee / 2, event.point.z - piece.position_z - decalage.current.z));
+    deplacer(meuble, Number(x.toFixed(2)), Number(z.toFixed(2)), final);
+  };
+  const materiau = (color: string) => <meshStandardMaterial color={color} roughness={0.72} />;
+  return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
+    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
+    onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
+    onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
+    onPointerCancel={() => { glisse.current = false; }}>
+    <mesh position={[0, meuble.hauteur / 2, 0]} castShadow receiveShadow><boxGeometry args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} />{materiau(couleur)}</mesh>
     {meuble.type === "canape" && <>
-      <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.39]} castShadow><boxGeometry args={[meuble.largeur * 0.94, meuble.hauteur * 0.38, meuble.profondeur * 0.18]} /><meshStandardMaterial color="#405f73" /></mesh>
-      {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.57, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.45, meuble.profondeur]} /><meshStandardMaterial color="#405f73" /></mesh>)}
+      <mesh position={[0, meuble.hauteur * 0.76, -meuble.profondeur * 0.38]} castShadow><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.42, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
+      {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.56, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.48, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
+      <mesh position={[0, meuble.hauteur * 0.57, 0.08]}><boxGeometry args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} />{materiau("#7896a8")}</mesh>
     </>}
-    {meuble.type === "lit" && <mesh position={[0, meuble.hauteur * 0.9, -meuble.profondeur * 0.42]}><boxGeometry args={[meuble.largeur, meuble.hauteur * 0.2, 0.1]} /><meshStandardMaterial color="#8b7059" /></mesh>}
-    {meuble.type === "table" && [-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.42, meuble.hauteur * 0.25, z * meuble.profondeur * 0.38]}><boxGeometry args={[0.07, meuble.hauteur * 0.5, 0.07]} /><meshStandardMaterial color="#765338" /></mesh>))}
+    {meuble.type === "fauteuil" && <>
+      <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.38]}><boxGeometry args={[meuble.largeur * 0.88, meuble.hauteur * 0.4, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
+      {[-1, 1].map((c) => <mesh key={c} position={[c * meuble.largeur * 0.43, meuble.hauteur * 0.55, 0]}><boxGeometry args={[meuble.largeur * 0.14, meuble.hauteur * 0.45, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
+    </>}
+    {meuble.type === "lit" && <>
+      <mesh position={[0, meuble.hauteur * 0.9, -meuble.profondeur * 0.42]}><boxGeometry args={[meuble.largeur, meuble.hauteur * 0.2, 0.1]} />{materiau("#8b7059")}</mesh>
+      {[-1, 1].map((c) => <mesh key={c} position={[c * meuble.largeur * 0.23, meuble.hauteur * 1.08, meuble.profondeur * 0.28]}><boxGeometry args={[meuble.largeur * 0.32, meuble.hauteur * 0.12, meuble.profondeur * 0.2]} />{materiau("#f4f6f8")}</mesh>)}
+      <mesh position={[0, meuble.hauteur * 1.02, 0.05]}><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.12, meuble.profondeur * 0.72]} />{materiau("#e7edf2")}</mesh>
+    </>}
+    {meuble.type === "table" && <>
+      {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.42, meuble.hauteur * 0.25, z * meuble.profondeur * 0.38]}><boxGeometry args={[0.07, meuble.hauteur * 0.5, 0.07]} />{materiau("#765338")}</mesh>))}
+      <mesh position={[0, meuble.hauteur * 0.94, 0]}><boxGeometry args={[meuble.largeur * 0.98, 0.08, meuble.profondeur * 0.98]} />{materiau("#c39a70")}</mesh>
+    </>}
+    {meuble.type === "armoire" && <>
+      {[-1, 1].map((c) => <group key={c} position={[c * meuble.largeur * 0.25, meuble.hauteur * 0.5, meuble.profondeur / 2 + 0.012]}>
+        <mesh><boxGeometry args={[meuble.largeur * 0.48, meuble.hauteur * 0.94, 0.035]} />{materiau("#a88b70")}</mesh>
+        <mesh position={[c * meuble.largeur * 0.16, 0, 0.025]}><sphereGeometry args={[0.025, 10, 8]} />{materiau("#d5b56d")}</mesh>
+      </group>)}
+    </>}
+    {meuble.type === "cuisine" && <>
+      <mesh position={[0, meuble.hauteur * 0.92, 0]}><boxGeometry args={[meuble.largeur * 1.04, meuble.hauteur * 0.12, meuble.profondeur * 1.06]} />{materiau("#e4e8eb")}</mesh>
+      {[-1, 1].map((c) => <group key={c} position={[c * meuble.largeur * 0.25, meuble.hauteur * 0.46, meuble.profondeur / 2 + 0.018]}>
+        <mesh><boxGeometry args={[meuble.largeur * 0.48, meuble.hauteur * 0.78, 0.035]} />{materiau("#d7dde2")}</mesh>
+        <mesh position={[0, meuble.hauteur * 0.2, 0.03]}><boxGeometry args={[meuble.largeur * 0.12, 0.018, 0.018]} />{materiau("#687888")}</mesh>
+        <mesh position={[0, -meuble.hauteur * 0.12, 0.03]}><boxGeometry args={[meuble.largeur * 0.12, 0.018, 0.018]} />{materiau("#687888")}</mesh>
+      </group>)}
+      <mesh position={[0, meuble.hauteur * 0.98, -meuble.profondeur * 0.18]}><boxGeometry args={[meuble.largeur * 0.42, 0.018, meuble.profondeur * 0.42]} />{materiau("#697987")}</mesh>
+    </>}
   </group>;
 }
-
 function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   if (!piece) return null;
   return {
@@ -205,17 +243,18 @@ function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PieceP
   });
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier }: {
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble }: {
   piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
+  deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
 }) {
   const opacite = transparence / 100;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: 0.82, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
   return (
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
-      {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} />)}
+      {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} />)}
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
@@ -398,6 +437,15 @@ export default function Plan3D({ role }: { role: string }) {
     setMessage("Meuble supprimé.");
   };
 
+  const deplacerMeuble = (meuble: Meuble, x: number, z: number, final: boolean) => {
+    if (!pieceSelectionnee) return;
+    const apercu = { ...meuble, position_x: x, position_z: z };
+    setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id
+      ? { ...piece, meubles: (piece.meubles ?? []).map((item) => item.id === meuble.id ? apercu : item) }
+      : piece));
+    if (final) void modifierMeuble(apercu, { position_x: x, position_z: z });
+  };
+
   const deplacerOuverture = (pieceId: string, ouvertureId: number, position: number) => {
     setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceId
       ? { ...piece, ouvertures: (piece.ouvertures ?? []).map((ouverture) => ouverture.id === ouvertureId ? { ...ouverture, position } : ouverture) }
@@ -496,6 +544,9 @@ export default function Plan3D({ role }: { role: string }) {
                     <span>{({ canape: "Canapé", fauteuil: "Fauteuil", table: "Table", lit: "Lit", armoire: "Armoire", cuisine: "Meuble de cuisine" } as Record<Meuble["type"], string>)[meuble.type]}</span>
                     <label className="plan3d-furniture-control">X <input type="number" step="0.1" defaultValue={meuble.position_x} onBlur={(event) => void modifierMeuble(meuble, { position_x: Number(event.target.value) })} /></label>
                     <label className="plan3d-furniture-control">Z <input type="number" step="0.1" defaultValue={meuble.position_z} onBlur={(event) => void modifierMeuble(meuble, { position_z: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">L (m) <input aria-label="Largeur du meuble" type="number" min="0.2" max="10" step="0.1" defaultValue={meuble.largeur} onBlur={(event) => void modifierMeuble(meuble, { largeur: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">P (m) <input aria-label="Profondeur du meuble" type="number" min="0.2" max="10" step="0.1" defaultValue={meuble.profondeur} onBlur={(event) => void modifierMeuble(meuble, { profondeur: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">H (m) <input aria-label="Hauteur du meuble" type="number" min="0.2" max="5" step="0.1" defaultValue={meuble.hauteur} onBlur={(event) => void modifierMeuble(meuble, { hauteur: Number(event.target.value) })} /></label>
                     <button type="button" onClick={() => void modifierMeuble(meuble, { rotation: (meuble.rotation + 90) % 360 })}>Tourner 90°</button>
                     <button type="button" onClick={() => void supprimerMeuble(meuble)}>Supprimer</button>
                   </div>)}
@@ -509,15 +560,15 @@ export default function Plan3D({ role }: { role: string }) {
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.7 : 2} castShadow />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
-            <div className="plan3d-hint">Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
+            <div className="plan3d-hint">Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier est schématique et peut être ajouté, déplacé, tourné et supprimé par un administrateur.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les modèles restent schématiques.</p>
     </div>
   );
 }

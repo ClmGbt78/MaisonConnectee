@@ -33,3 +33,8 @@
 
 .plan3d-furniture-control { display: flex !important; grid-template-columns: auto 76px !important; align-items: center; gap: 5px !important; min-width: 90px !important; }
 .plan3d-furniture-control input { width: 76px !important; min-height: 30px !important; }
+
+.plan3d-canvas canvas { cursor: grab; }
+.plan3d-canvas canvas:active { cursor: grabbing; }
+.plan3d-furniture-control { grid-template-columns: auto 68px !important; }
+.plan3d-furniture-control input { width: 68px !important; }
