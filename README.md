@@ -210,3 +210,8 @@ Les ouvertures disposent maintenant d'un habillage visuel schématique dans le r
 - couleurs adaptées à l'ambiance jour/nuit.
 
 Ces éléments sont générés à partir des ouvertures déjà enregistrées. Aucun nouveau champ SQLite, aucune migration et aucune modification des données existantes ne sont nécessaires. Le sens et l'angle d'ouverture des portes restent pour l'instant illustratifs et ne sont pas configurables.
+
+
+## Plan 3D : configuration de l’ouverture des portes
+
+Chaque porte peut être configurée avec un sens d’ouverture (gauche ou droite) et un angle de 0°, 45°, 90°, 120° ou 150°. Ces paramètres sont enregistrés avec l’ouverture et utilisés par le rendu 3D. Les fenêtres ne sont pas concernées. À l'initialisation, les colonnes manquantes sont ajoutées à la table existante avec des valeurs par défaut (gauche, 90°), sans supprimer ni réinitialiser les ouvertures enregistrées.

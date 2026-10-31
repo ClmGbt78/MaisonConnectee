@@ -82,3 +82,62 @@ def test_porte_avec_appui_refusee(plan):
             "type": "porte", "mur": "nord", "position": 0,
             "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0.2,
         })
+
+
+def test_anciennes_ouvertures_recoivent_des_valeurs_par_defaut(plan):
+    piece = plan.lister()[0]
+    ouverture = plan.ajouter_ouverture(piece["id"], {
+        "type": "porte", "mur": "nord", "position": 0,
+        "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0,
+    })
+    assert ouverture["sens_ouverture"] == "gauche"
+    assert ouverture["angle_ouverture"] == 90
+
+
+def test_configuration_sens_et_angle_porte_persiste(plan):
+    piece = plan.lister()[0]
+    ouverture = plan.ajouter_ouverture(piece["id"], {
+        "type": "porte", "mur": "nord", "position": 0,
+        "largeur": 0.9, "hauteur": 2.1, "hauteur_appui": 0,
+        "sens_ouverture": "droite", "angle_ouverture": 120,
+    })
+    assert ouverture["sens_ouverture"] == "droite"
+    assert ouverture["angle_ouverture"] == 120
+    rechargee = plan.lister()[0]["ouvertures"][0]
+    assert rechargee["sens_ouverture"] == "droite"
+    assert rechargee["angle_ouverture"] == 120
+
+
+def test_migration_ajoute_les_parametres_aux_anciennes_ouvertures(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "ancienne-base.db"
+    AppareilRepository(db).initialiser()
+    pieces = PiecesRepository(db)
+    pieces.initialiser()
+    piece = pieces.lister()[0]
+    with sqlite3.connect(db) as connexion:
+        connexion.execute("""
+            CREATE TABLE ouvertures_pieces_3d (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                piece_id TEXT NOT NULL,
+                type TEXT NOT NULL CHECK (type IN ('porte', 'fenetre')),
+                mur TEXT NOT NULL CHECK (mur IN ('nord', 'sud', 'est', 'ouest')),
+                position REAL NOT NULL DEFAULT 0,
+                largeur REAL NOT NULL,
+                hauteur REAL NOT NULL,
+                hauteur_appui REAL NOT NULL DEFAULT 0,
+                FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
+            )
+        """)
+        connexion.execute("""
+            INSERT INTO ouvertures_pieces_3d
+                (piece_id, type, mur, position, largeur, hauteur, hauteur_appui)
+            VALUES (?, 'porte', 'nord', 0, 0.9, 2.1, 0)
+        """, (piece["id"],))
+
+    repository = Plan3DRepository(db)
+    repository.initialiser()
+    ouverture = repository.lister()[0]["ouvertures"][0]
+    assert ouverture["sens_ouverture"] == "gauche"
+    assert ouverture["angle_ouverture"] == 90
