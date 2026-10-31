@@ -258,7 +258,7 @@ class Plan3DRepository:
         return [dict(ligne) for ligne in lignes]
 
     def ajouter_installation(self, piece_id: str, donnees: dict) -> dict | None:
-        piece = self.pieces.obtenir(piece_id)
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
         if piece is None:
             return None
         self._valider_installation(piece, donnees)
