@@ -253,3 +253,23 @@ Le plan 3D propose également un éditeur de finitions par pièce (murs intérie
 Les scénarios accessibles depuis le plan 3D peuvent cibler toute la maison ou uniquement une sélection d'appareils. Chaque appareil ciblé reçoit un état marche/arrêt défini par l'utilisateur. Les capteurs restent en lecture seule. Les scénarios sont enregistrés dans `scenarios_plan_3d` et appliqués via le service domotique existant ; les limites du pilote (actuellement simulé) restent inchangées. Les commandes en échec sont retournées individuellement à l'interface.
 
 Les nouvelles tables sont créées avec `CREATE TABLE IF NOT EXISTS`. Aucune table existante ni donnée domotique n'est réinitialisée ou supprimée.
+
+## Sauvegardes et restauration SQLite
+
+Le backend sauvegarde automatiquement les deux bases SQLite (`comptes.db` et `systeme_historique.db`) au démarrage, puis selon l'intervalle configuré. Chaque sauvegarde contient les deux bases dans un même dossier horodaté et utilise l'API de sauvegarde SQLite pour obtenir une copie cohérente, y compris lorsque la base est ouverte par l'application. Les sauvegardes sont vérifiées avec `PRAGMA integrity_check`.
+
+Configuration facultative dans `.env` :
+
+- `BACKUP_DIR` : dossier des sauvegardes (par défaut `DATA_DIR/backups`).
+- `BACKUP_INTERVAL_HOURS` : intervalle en heures, de 1 à 168 (24 par défaut).
+- `BACKUP_RETENTION_COUNT` : nombre de sauvegardes conservées, de 1 à 365 (14 par défaut).
+
+Routes réservées aux administrateurs (JWT avec le rôle `admin`) :
+
+- `GET /api/sauvegardes` : lister les sauvegardes disponibles.
+- `POST /api/sauvegardes` : déclencher une sauvegarde immédiate.
+- `POST /api/sauvegardes/{identifiant}/restaurer` : restaurer les deux bases depuis une sauvegarde.
+
+Une restauration crée d'abord une sauvegarde de sécurité de l'état courant. Les fichiers de restauration sont vérifiés avant remplacement ; si une étape échoue, le service tente de revenir à la sauvegarde de sécurité. La restauration peut invalider la session en cours si la base des comptes restaurée ne contient plus le compte connecté.
+
+Les sauvegardes contiennent notamment les comptes et les données domotiques : protège le dossier de sauvegarde comme les bases originales. Pour une vraie protection contre une panne ou un vol du Raspberry Pi, copie également ce dossier vers un support ou un emplacement distant distinct. Le mécanisme intégré ne transfère pas les sauvegardes hors de la machine.
