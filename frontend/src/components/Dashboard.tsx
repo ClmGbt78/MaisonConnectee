@@ -58,7 +58,6 @@ export default function Dashboard({ appareils, pieces, automatisations, metrics,
         if (nonLuesResponse.ok) {
           const elementsNonLus: Notification[] = await nonLuesResponse.json();
           if (actif) setNonLues(elementsNonLus.length);
-          }
         }
       })
       .catch((cause) => { if (actif) setErreur(cause instanceof Error ? cause.message : "Erreur de chargement."); })
