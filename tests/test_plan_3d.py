@@ -141,3 +141,53 @@ def test_migration_ajoute_les_parametres_aux_anciennes_ouvertures(tmp_path):
     ouverture = repository.lister()[0]["ouvertures"][0]
     assert ouverture["sens_ouverture"] == "gauche"
     assert ouverture["angle_ouverture"] == 90
+
+
+
+def test_forme_personnalisee_est_persistante(plan):
+    piece = plan.lister()[0]
+    forme = [
+        {"x": -2, "z": -1.5}, {"x": 2, "z": -1.5},
+        {"x": 2, "z": 0.5}, {"x": 0, "z": 0.5},
+        {"x": 0, "z": 1.5}, {"x": -2, "z": 1.5},
+    ]
+    resultat = plan.enregistrer(piece["id"], {
+        "position_x": 0, "position_z": 0, "largeur": 4,
+        "profondeur": 3, "hauteur": 2.7, "etage": 0, "forme": forme,
+    })
+    assert resultat["forme"] == forme
+    assert plan.lister()[0]["forme"] == forme
+
+
+def test_forme_personnalisee_refuse_les_murs_croises(plan):
+    piece = plan.lister()[0]
+    forme = [
+        {"x": -2, "z": -1}, {"x": 2, "z": 1},
+        {"x": -2, "z": 1}, {"x": 2, "z": -1},
+    ]
+    with pytest.raises(ValueError, match="croiser"):
+        plan.enregistrer(piece["id"], {
+            "position_x": 0, "position_z": 0, "largeur": 4,
+            "profondeur": 3, "hauteur": 2.7, "etage": 0, "forme": forme,
+        })
+
+
+def test_migration_ajoute_forme_aux_geometries_existantes(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "ancienne-geometrie.db"
+    AppareilRepository(db).initialiser()
+    PiecesRepository(db).initialiser()
+    with sqlite3.connect(db) as connexion:
+        connexion.execute("""
+            CREATE TABLE geometrie_pieces_3d (
+                piece_id TEXT PRIMARY KEY, position_x REAL NOT NULL DEFAULT 0,
+                position_z REAL NOT NULL DEFAULT 0, largeur REAL NOT NULL DEFAULT 4,
+                profondeur REAL NOT NULL DEFAULT 3, hauteur REAL NOT NULL DEFAULT 2.7,
+                etage INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+    repository = Plan3DRepository(db)
+    repository.initialiser()
+    piece = repository.lister()[0]
+    assert piece["forme"] is None
