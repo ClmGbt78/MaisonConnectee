@@ -131,5 +131,13 @@ class PiecesRepository:
                     ).fetchone()
                     if reference:
                         raise ValueError("Cette pièce est encore utilisée par une automatisation.")
+            # Nettoie les donnees propres au plan 3D avant de supprimer la piece.
+            # Les appareils et automatisations sont proteges par les controles ci-dessus.
+            for table in ("geometrie_pieces_3d", "ouvertures_pieces_3d", "meubles_pieces_3d", "elements_installation_3d"):
+                existe = connexion.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+                ).fetchone()
+                if existe:
+                    connexion.execute(f"DELETE FROM {table} WHERE piece_id = ?", (piece_id,))
             connexion.execute("DELETE FROM pieces_domotiques WHERE id = ?", (piece_id,))
             return piece["nom"]
