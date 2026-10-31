@@ -253,3 +253,28 @@ Le plan 3D propose également un éditeur de finitions par pièce (murs intérie
 Les scénarios accessibles depuis le plan 3D peuvent cibler toute la maison ou uniquement une sélection d'appareils. Chaque appareil ciblé reçoit un état marche/arrêt défini par l'utilisateur. Les capteurs restent en lecture seule. Les scénarios sont enregistrés dans `scenarios_plan_3d` et appliqués via le service domotique existant ; les limites du pilote (actuellement simulé) restent inchangées. Les commandes en échec sont retournées individuellement à l'interface.
 
 Les nouvelles tables sont créées avec `CREATE TABLE IF NOT EXISTS`. Aucune table existante ni donnée domotique n'est réinitialisée ou supprimée.
+
+
+## Historique, statistiques et inventaire domotique
+
+Une table additive `historique_domotique` conserve les changements d'état des lumières et les mesures de température reçues. Les événements sont horodatés localement. Les graphiques de l'interface peuvent afficher les périodes jour, semaine et mois. Les données d'historique commencent à être collectées à partir de l'installation de cette évolution ; les anciens états ne peuvent pas être reconstruits rétroactivement.
+
+- `GET /api/domotique/historique?periode=jour|semaine|mois|tout` : consulter l'historique, avec filtres facultatifs `appareil_id` et `evenement`.
+- Les mesures de température simulées utilisent la route existante `PUT /api/domotique/automatisations/capteurs/{id}/mesure` avec `{"type_mesure":"temperature","valeur":20.5}`.
+- L'inventaire est exposé par `GET /api/domotique/inventaire`. Les informations techniques facultatives sont modifiables par administrateur avec `PUT /api/domotique/inventaire/{id}`.
+- L'affectation à une pièce utilise `PATCH /api/domotique/appareils/{id}/piece` avec `{"piece":"Salon"}`.
+
+Les informations fabricant, modèle, référence, protocole, adresse matérielle et notes sont descriptives. L'état « simulation / non vérifié » reste affiché tant qu'un adaptateur matériel ne fournit pas un véritable état de connexion.
+
+## Automatisations avancées
+
+Les règles avancées sont enregistrées dans les tables additives `automatisations_avancees` et `actions_differees`. Elles combinent une ou plusieurs mesures de capteurs avec une logique ET/OU, puis exécutent une ou plusieurs commandes marche/arrêt, immédiatement ou après un délai. Les jours et une plage horaire facultative limitent leur exécution.
+
+- `GET/POST /api/domotique/automatisations/avancees`
+- `PUT/PATCH/DELETE /api/domotique/automatisations/avancees/{id}`
+
+Le moteur local les vérifie toutes les 15 secondes tant que FastAPI fonctionne. Les règles avancées sont réservées aux administrateurs. Les délais sont persistés pour survivre aux redémarrages. Les actions utilisent le pilote domotique existant (simulation actuellement) et ne commandent aucun matériel physique.
+
+## Interface mobile
+
+La navigation et les commandes de la centrale s'adaptent aux smartphones et tablettes. Une page « Historique & avancé » regroupe les graphiques, les règles avancées et l'inventaire. Le plan 3D reste accessible depuis la navigation mobile. Les commandes rapides sont disponibles sur les appareils compatibles.
