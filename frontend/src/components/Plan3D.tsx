@@ -387,8 +387,8 @@ function InstallationPiece3D({ elements, appareils, nuit, commander }: { element
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition }: {
-  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
+function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition }: {
+  piece: PiecePlan; pieces: PiecePlan[]; elevation: number; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
@@ -399,7 +399,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
   return (
-    <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
+    <group position={[piece.position_x, elevation, piece.position_z]}>
       {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
@@ -928,6 +928,18 @@ Cette opération est irréversible. Continuer ?`)) return;
   };
 
   const piecesPourAffichage = pieces.map((piece) => piece.id === selection && brouillon ? { ...piece, ...brouillon } : piece);
+  // Chaque niveau démarre au-dessus du plafond le plus haut du niveau précédent.
+  // Cela évite le décalage fixe de 3,25 m et tient compte des hauteurs réellement configurées.
+  const elevationsEtages = piecesPourAffichage.reduce<Record<number, number>>((elevations, piece) => {
+    const niveaux = [...new Set(piecesPourAffichage.map((item) => item.etage))].sort((a, b) => a - b);
+    let elevation = 0;
+    for (const niveau of niveaux) {
+      elevations[niveau] = elevation;
+      const hauteurNiveau = Math.max(2, ...piecesPourAffichage.filter((item) => item.etage === niveau).map((item) => item.hauteur));
+      elevation += hauteurNiveau + 0.18;
+    }
+    return elevations;
+  }, {});
   const piecesVisibles = etageAffiche === "tous" ? piecesPourAffichage : piecesPourAffichage.filter((piece) => piece.etage === Number(etageAffiche));
   const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.x))) : piece.largeur / 2) + 3), 16);
   const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.z))) : piece.profondeur / 2) + 3), 16);
@@ -1069,7 +1081,7 @@ Cette opération est irréversible. Continuer ?`)) return;
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
