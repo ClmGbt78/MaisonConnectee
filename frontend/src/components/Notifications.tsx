@@ -12,11 +12,12 @@ export default function Notifications() {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
   const charger = useCallback(async () => {
-    setErreur("");
     try {
       const response = await apiFetch("/api/notifications?limite=200");
       if (!response.ok) throw new Error("Impossible de charger les notifications.");
-      setNotifications(await response.json());
+      const elements: Notification[] = await response.json();
+      setErreur("");
+      setNotifications(elements);
     } catch (cause) {
       setErreur(cause instanceof Error ? cause.message : "Erreur de chargement.");
     } finally { setChargement(false); }
