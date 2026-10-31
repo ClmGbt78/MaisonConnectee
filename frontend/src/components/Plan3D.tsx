@@ -54,7 +54,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     {meuble.type === "canape" && <>
       <mesh position={[0, meuble.hauteur * 0.76, -meuble.profondeur * 0.38]} castShadow><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.42, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
       {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.56, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.48, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
-      <mesh position={[0, meuble.hauteur * 0.57, 0.08]}><boxGeometry args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} />{materiau("#7896a8")}</mesh>
+      <RoundedBox position={[0, meuble.hauteur * 0.57, 0.08]} args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} radius={0.055} smoothness={3} castShadow>{materiau("#7896a8")}</RoundedBox>
     </>}
     {meuble.type === "fauteuil" && <>
       <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.38]}><boxGeometry args={[meuble.largeur * 0.88, meuble.hauteur * 0.4, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
@@ -63,7 +63,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     {meuble.type === "lit" && <>
       <mesh position={[0, meuble.hauteur * 0.9, -meuble.profondeur * 0.42]}><boxGeometry args={[meuble.largeur, meuble.hauteur * 0.2, 0.1]} />{materiau("#8b7059")}</mesh>
       {[-1, 1].map((c) => <mesh key={c} position={[c * meuble.largeur * 0.23, meuble.hauteur * 1.08, meuble.profondeur * 0.28]}><boxGeometry args={[meuble.largeur * 0.32, meuble.hauteur * 0.12, meuble.profondeur * 0.2]} />{materiau("#f4f6f8")}</mesh>)}
-      <mesh position={[0, meuble.hauteur * 1.02, 0.05]}><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.12, meuble.profondeur * 0.72]} />{materiau("#e7edf2")}</mesh>
+      <RoundedBox position={[0, meuble.hauteur * 1.02, 0.05]} args={[meuble.largeur * 0.92, meuble.hauteur * 0.12, meuble.profondeur * 0.72]} radius={0.045} smoothness={4} castShadow>{materiau("#e7edf2")}</RoundedBox>
     </>}
     {meuble.type === "table" && <>
       {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.42, meuble.hauteur * 0.25, z * meuble.profondeur * 0.38]}><boxGeometry args={[0.07, meuble.hauteur * 0.5, 0.07]} />{materiau("#765338")}</mesh>))}
@@ -254,7 +254,7 @@ function LuminairePiece3D({ lumieres, nuit }: { lumieres: LumiereDomotique[]; nu
     return <group key={lumiere.id} position={[(index % 2 ? 0.65 : -0.65), 2.48, (index < 2 ? -0.55 : 0.55)]}>
       <mesh><sphereGeometry args={[0.09, 16, 12]} /><meshStandardMaterial color={lumiere.allume ? couleur : "#64748b"} emissive={lumiere.allume ? couleur : "#000000"} emissiveIntensity={lumiere.allume ? 1.8 : 0} /></mesh>
       {lumiere.allume && <pointLight color={couleur} intensity={intensite} distance={Math.max(3.5, Math.min(7, 2.5 + (lumiere.luminosite ?? 100) / 25))} decay={2} />}
-      <Html position={[0, 0.2, 0]} center distanceFactor={12} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}><span className="plan3d-light-label">{lumiere.nom}</span></Html>
+      <Html position={[0, 0.2, 0]} center distanceFactor={12} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}><span className={nuit ? "plan3d-light-label plan3d-light-label-night" : "plan3d-light-label"}>{lumiere.nom}</span></Html>
     </group>;
   })}</group>;
 }
