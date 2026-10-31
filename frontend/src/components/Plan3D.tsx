@@ -441,7 +441,7 @@ export default function Plan3D({ role }: { role: string }) {
       if (!nouvellePiece) throw new Error("La pièce a été créée, mais elle est absente du plan rechargé.");
       const bordDroit = donnees
         .filter((piece) => piece.id !== nouvellePiece.id)
-        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + piece.largeur / 2), 0);
+        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + (piece.forme?.length ? Math.max(...piece.forme.map((point) => point.x)) : piece.largeur / 2)), 0);
       const geometrie = {
         position_x: Number((bordDroit + 2 + nouvellePiece.largeur / 2).toFixed(2)),
         position_z: 0,
