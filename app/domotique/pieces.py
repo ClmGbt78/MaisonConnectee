@@ -106,6 +106,7 @@ class PiecesRepository:
         return self.obtenir(piece_id)
 
     def supprimer(self, piece_id: str) -> str | None:
+        """Supprime une pièce et toutes ses dépendances domotiques dans une transaction."""
         with sqlite3.connect(self.db_path) as connexion:
             connexion.row_factory = sqlite3.Row
             connexion.execute("BEGIN")
@@ -114,30 +115,69 @@ class PiecesRepository:
             ).fetchone()
             if piece is None:
                 return None
-            utilisee = connexion.execute(
-                "SELECT 1 FROM appareils_domotiques WHERE piece = ? COLLATE NOCASE LIMIT 1",
-                (piece["nom"],),
-            ).fetchone()
-            if utilisee:
-                raise ValueError("Cette pièce contient encore des appareils. Déplace-les avant de la supprimer.")
-            for table in ("automatisations", "automatisations_conditionnelles", "extinctions_differees"):
-                existe = connexion.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
-                ).fetchone()
-                if existe:
-                    reference = connexion.execute(
-                        f"SELECT 1 FROM {table} WHERE piece = ? COLLATE NOCASE LIMIT 1",
-                        (piece["nom"],),
-                    ).fetchone()
-                    if reference:
-                        raise ValueError("Cette pièce est encore utilisée par une automatisation.")
-            # Nettoie les donnees propres au plan 3D avant de supprimer la piece.
-            # Les appareils et automatisations sont proteges par les controles ci-dessus.
-            for table in ("geometrie_pieces_3d", "ouvertures_pieces_3d", "meubles_pieces_3d", "elements_installation_3d"):
-                existe = connexion.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
-                ).fetchone()
-                if existe:
+
+            nom = piece["nom"]
+            appareils = connexion.execute(
+                "SELECT id FROM appareils_domotiques WHERE piece = ? COLLATE NOCASE",
+                (nom,),
+            ).fetchall()
+            appareil_ids = [ligne["id"] for ligne in appareils]
+            tables = {
+                ligne["name"] for ligne in connexion.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+
+            # Les automatisations horaires et conditionnelles liées à la pièce
+            # ou à l'un de ses capteurs sont supprimées avant les appareils.
+            if "automatisations" in tables:
+                connexion.execute(
+                    "DELETE FROM automatisations WHERE piece = ? COLLATE NOCASE", (nom,)
+                )
+            if "automatisations_conditionnelles" in tables:
+                if appareil_ids:
+                    placeholders = ",".join("?" for _ in appareil_ids)
+                    connexion.execute(
+                        "DELETE FROM automatisations_conditionnelles "
+                        f"WHERE piece = ? COLLATE NOCASE OR capteur_id IN ({placeholders})",
+                        [nom, *appareil_ids],
+                    )
+                else:
+                    connexion.execute(
+                        "DELETE FROM automatisations_conditionnelles WHERE piece = ? COLLATE NOCASE",
+                        (nom,),
+                    )
+            if "extinctions_differees" in tables:
+                connexion.execute(
+                    "DELETE FROM extinctions_differees WHERE piece = ? COLLATE NOCASE", (nom,)
+                )
+
+            # Nettoie les données et configurations propres aux appareils supprimés.
+            if appareil_ids:
+                placeholders = ",".join("?" for _ in appareil_ids)
+                for table, colonne in (
+                    ("mesures_capteurs", "appareil_id"),
+                    ("configurations_capteurs_serie", "capteur_id"),
+                ):
+                    if table in tables:
+                        connexion.execute(
+                            f"DELETE FROM {table} WHERE {colonne} IN ({placeholders})",
+                            appareil_ids,
+                        )
+                connexion.execute(
+                    f"DELETE FROM appareils_domotiques WHERE id IN ({placeholders})",
+                    appareil_ids,
+                )
+
+            # Les données 3D de la pièce sont supprimées dans la même transaction.
+            for table in (
+                "geometrie_pieces_3d",
+                "ouvertures_pieces_3d",
+                "meubles_pieces_3d",
+                "elements_installation_3d",
+            ):
+                if table in tables:
                     connexion.execute(f"DELETE FROM {table} WHERE piece_id = ?", (piece_id,))
+
             connexion.execute("DELETE FROM pieces_domotiques WHERE id = ?", (piece_id,))
-            return piece["nom"]
+            return nom
