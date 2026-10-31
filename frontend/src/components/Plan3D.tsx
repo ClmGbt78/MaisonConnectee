@@ -407,6 +407,16 @@ export default function Plan3D({ role }: { role: string }) {
     } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur d'ajout."); }
   };
 
+  const modifierInstallation = async (element: ElementInstallation, changements: Partial<ElementInstallation>) => {
+    if (!pieceSelectionnee) return;
+    const payload = { ...element, ...changements };
+    const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations/${element.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { setErreur(data.detail || "Modification de l'installation impossible."); return; }
+    setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: piece.installations.map((item) => item.id === element.id ? data : item) } : piece));
+    setErreur("");
+  };
+
   const commanderAppareil = async (appareil: AppareilDomotique) => {
     if (appareil.type === "capteur") { setMessage(`${appareil.nom} est consultable en lecture seule.`); return; }
     try {
@@ -628,6 +638,9 @@ export default function Plan3D({ role }: { role: string }) {
                   </div>
                   {(pieceSelectionnee?.installations ?? []).map((element) => <div className="plan3d-opening-row" key={element.id}>
                     <span>{element.type === "prise" ? "Prise" : element.type === "interrupteur" ? "Interrupteur" : appareils.find((item) => item.id === element.appareil_id)?.nom ?? "Appareil"} · {element.circuit}</span>
+                    <label className="plan3d-furniture-control">X <input aria-label="Position X de l'installation" type="number" step="0.1" defaultValue={element.position_x} onBlur={(event) => void modifierInstallation(element, { position_x: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">Z <input aria-label="Position Z de l'installation" type="number" step="0.1" defaultValue={element.position_z} onBlur={(event) => void modifierInstallation(element, { position_z: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">H (m) <input aria-label="Hauteur de l'installation" type="number" min="0.05" max="4.5" step="0.05" defaultValue={element.hauteur} onBlur={(event) => void modifierInstallation(element, { hauteur: Number(event.target.value) })} /></label>
                     <button type="button" onClick={async () => { const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations/${element.id}`, { method: "DELETE" }); if (response.ok) setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: piece.installations.filter((item) => item.id !== element.id) } : piece)); else setErreur("Suppression impossible."); }}>Retirer</button>
                   </div>)}
                 </section>
