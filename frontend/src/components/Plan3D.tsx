@@ -66,7 +66,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     const zFinal = Math.max(-piece.profondeur / 2 + profondeurTournee / 2, Math.min(piece.profondeur / 2 - profondeurTournee / 2, zAligne));
     deplacer(meuble, Number(xFinal.toFixed(2)), Number(zFinal.toFixed(2)), final);
   };
-  const materiau = (color: string) => <meshStandardMaterial color={color} roughness={meuble.type === "table" || meuble.type === "armoire" || meuble.type === "cuisine" ? 0.38 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
+  const materiau = (color: string) => <meshStandardMaterial color={color} roughness={["table", "armoire", "cuisine", "meuble_tv", "table_basse", "chaise", "bureau", "table_chevet", "commode"].includes(meuble.type) ? 0.42 : meuble.type === "television" ? 0.22 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
     onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
@@ -108,7 +108,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     })()}
     {meuble.type === "fauteuil" && (() => {
       const w = meuble.largeur, h = meuble.hauteur, d = meuble.profondeur;
-      const coussin = Math.max(0.035, Math.min(0.09, h * 0.12, w * 0.08));
+      const coussin = Math.max(0.03, Math.min(0.055, h * 0.1, w * 0.07));
       return <>
         {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * w * 0.37, h * 0.19, z * d * 0.36]} castShadow><cylinderGeometry args={[0.025, 0.032, h * 0.34, 8]} />{materiau("#765338")}</mesh>))}
         <RoundedBox position={[0, h * 0.43, d * 0.02]} args={[w * 0.82, h * 0.18, d * 0.76]} radius={coussin} smoothness={5} castShadow receiveShadow>{materiau("#7896a8")}</RoundedBox>
@@ -120,9 +120,9 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
       const w = meuble.largeur, h = meuble.hauteur, d = meuble.profondeur;
       return <>
         <RoundedBox position={[0, h * 0.42, 0]} args={[w * 0.96, h * 0.5, d * 0.96]} radius={0.045} smoothness={3} castShadow>{materiau("#765338")}</RoundedBox>
-        <RoundedBox position={[0, h * 0.77, 0.02]} args={[w * 0.94, h * 0.24, d * 0.88]} radius={0.07} smoothness={5} castShadow receiveShadow>{materiau("#f0f2f4")}</RoundedBox>
-        <RoundedBox position={[0, h * 0.91, d * 0.34]} args={[w * 0.94, h * 0.055, d * 0.2]} radius={0.035} smoothness={4} castShadow>{materiau("#dce5ed")}</RoundedBox>
-        {[-1, 1].map((c) => <RoundedBox key={c} position={[c * w * 0.23, h * 0.96, -d * 0.27]} args={[w * 0.31, h * 0.12, d * 0.2]} radius={0.045} smoothness={5} castShadow>{materiau("#ffffff")}</RoundedBox>)}
+        <RoundedBox position={[0, h * 0.77, 0.02]} args={[w * 0.94, h * 0.24, d * 0.88]} radius={0.045} smoothness={5} castShadow receiveShadow>{materiau("#f0f2f4")}</RoundedBox>
+        <RoundedBox position={[0, h * 0.91, d * 0.34]} args={[w * 0.94, h * 0.055, d * 0.2]} radius={0.02} smoothness={4} castShadow>{materiau("#dce5ed")}</RoundedBox>
+        {[-1, 1].map((c) => <RoundedBox key={c} position={[c * w * 0.23, h * 0.96, -d * 0.27]} args={[w * 0.31, h * 0.12, d * 0.2]} radius={0.025} smoothness={5} castShadow>{materiau("#ffffff")}</RoundedBox>)}
         <RoundedBox position={[0, h * 0.62, -d * 0.47]} args={[w * 1.02, h * 0.76, 0.09]} radius={0.035} smoothness={3} castShadow>{materiau("#8b7059")}</RoundedBox>
       </>;
     })()}
@@ -132,7 +132,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     </>}
     {meuble.type === "table_basse" && <>
       {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.4, meuble.hauteur * 0.34, z * meuble.profondeur * 0.37]} castShadow><cylinderGeometry args={[0.025, 0.035, meuble.hauteur * 0.64, 8]} />{materiau("#765338")}</mesh>))}
-      <RoundedBox position={[0, meuble.hauteur * 0.72, 0]} args={[meuble.largeur, meuble.hauteur * 0.12, meuble.profondeur]} radius={0.045} smoothness={5} castShadow receiveShadow>{materiau("#c39a70")}</RoundedBox>
+      <RoundedBox position={[0, meuble.hauteur * 0.72, 0]} args={[meuble.largeur, meuble.hauteur * 0.12, meuble.profondeur]} radius={0.02} smoothness={5} castShadow receiveShadow>{materiau("#c39a70")}</RoundedBox>
     </>}
     {meuble.type === "chaise" && <>
       {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.37, meuble.hauteur * 0.25, z * meuble.profondeur * 0.34]} castShadow><cylinderGeometry args={[0.018, 0.025, meuble.hauteur * 0.5, 8]} />{materiau("#765338")}</mesh>))}
@@ -147,7 +147,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
       <RoundedBox position={[0, meuble.hauteur * 0.75, meuble.profondeur * 0.34]} args={[meuble.largeur * 0.34, meuble.hauteur * 0.2, meuble.profondeur * 0.22]} radius={0.025} smoothness={3} castShadow>{materiau("#a88b70")}</RoundedBox>
     </>}
     {meuble.type === "television" && <>
-      <RoundedBox position={[0, meuble.hauteur * 0.61, 0]} args={[meuble.largeur * 0.96, meuble.hauteur * 0.72, Math.max(0.035, meuble.profondeur * 0.18)]} radius={0.035} smoothness={4} castShadow>{materiau("#111820")}</RoundedBox>
+      <RoundedBox position={[0, meuble.hauteur * 0.61, 0]} args={[meuble.largeur * 0.96, meuble.hauteur * 0.72, Math.max(0.035, meuble.profondeur * 0.18)]} radius={0.015} smoothness={4} castShadow>{materiau("#111820")}</RoundedBox>
       <mesh position={[0, meuble.hauteur * 0.61, meuble.profondeur * 0.095]}><planeGeometry args={[meuble.largeur * 0.88, meuble.hauteur * 0.62]} /><meshStandardMaterial color="#172c43" emissive="#071321" emissiveIntensity={0.22} roughness={0.18} metalness={0.18} /></mesh>
       <RoundedBox position={[0, meuble.hauteur * 0.16, 0]} args={[meuble.largeur * 0.25, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} radius={0.025} smoothness={3} castShadow>{materiau("#343d47")}</RoundedBox>
       <RoundedBox position={[0, meuble.hauteur * 0.06, 0]} args={[meuble.largeur * 0.5, meuble.hauteur * 0.07, meuble.profondeur * 0.72]} radius={0.025} smoothness={3} castShadow>{materiau("#343d47")}</RoundedBox>
@@ -163,14 +163,14 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     {meuble.type === "table_chevet" && <>
       <RoundedBox position={[0, meuble.hauteur * 0.5, 0]} args={[meuble.largeur * 0.94, meuble.hauteur * 0.88, meuble.profondeur * 0.9]} radius={0.025} smoothness={3} castShadow>{materiau("#8b7059")}</RoundedBox>
       {[0, 1, 2].map((i) => <group key={i} position={[0, meuble.hauteur * (0.25 + i * 0.25), meuble.profondeur * 0.46]}>
-        <RoundedBox args={[meuble.largeur * 0.82, meuble.hauteur * 0.2, 0.025]} radius={0.018} smoothness={2}>{materiau("#a88b70")}</RoundedBox>
+        <RoundedBox args={[meuble.largeur * 0.82, meuble.hauteur * 0.2, 0.025]} radius={0.01} smoothness={2}>{materiau("#a88b70")}</RoundedBox>
         <mesh position={[0, 0, 0.025]}><sphereGeometry args={[0.018, 8, 8]} />{materiau("#d5b56d")}</mesh>
       </group>)}
     </>}
     {meuble.type === "commode" && <>
       <RoundedBox position={[0, meuble.hauteur * 0.49, 0]} args={[meuble.largeur, meuble.hauteur * 0.9, meuble.profondeur * 0.9]} radius={0.03} smoothness={3} castShadow>{materiau("#8b7059")}</RoundedBox>
       {[0, 1, 2].map((i) => <group key={i} position={[0, meuble.hauteur * (0.2 + i * 0.29), meuble.profondeur * 0.46]}>
-        <RoundedBox args={[meuble.largeur * 0.9, meuble.hauteur * 0.23, 0.025]} radius={0.02} smoothness={3}>{materiau("#a88b70")}</RoundedBox>
+        <RoundedBox args={[meuble.largeur * 0.9, meuble.hauteur * 0.23, 0.025]} radius={0.01} smoothness={3}>{materiau("#a88b70")}</RoundedBox>
         <mesh position={[0, 0, 0.025]}><sphereGeometry args={[0.022, 8, 8]} />{materiau("#d5b56d")}</mesh>
       </group>)}
     </>}
