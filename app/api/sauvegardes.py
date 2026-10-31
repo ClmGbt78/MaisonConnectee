@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.backups import GestionnaireSauvegardes
 from app.core.config import get_settings
 from app.core.security import require_admin
-from app.core.notifications import creer_notification
+from app.core.notifications import creer_notification, initialiser_stockage_notifications
+from app.api.dashboard import initialiser_stockage_dashboard
 from app.core.usb_backups import GestionnaireCopieUSB
 
 router = APIRouter(prefix="/sauvegardes", tags=["Sauvegardes"])
@@ -76,6 +77,9 @@ async def restaurer_sauvegarde(
     try:
         gestionnaire = obtenir_gestionnaire()
         resultat = await asyncio.to_thread(gestionnaire.restaurer, identifiant)
+        # Une ancienne sauvegarde peut précéder l'ajout de ces tables.
+        initialiser_stockage_dashboard()
+        initialiser_stockage_notifications()
         creer_notification(
             int(administrateur["id"]),
             "Restauration terminée",
