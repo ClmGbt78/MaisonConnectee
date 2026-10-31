@@ -42,10 +42,22 @@ def test_renommer_piece_met_a_jour_les_appareils_associes(pieces, tmp_path):
     assert appareils.obtenir("capteur-luminosite-salon")["piece"] == "Séjour"
 
 
-def test_suppression_refusee_si_la_piece_contient_des_appareils(pieces):
+def test_suppression_piece_avec_appareils_supprime_appareils_et_automatisations(pieces):
+    appareils = AppareilRepository(pieces.db_path)
+    automatisations = AutomatisationRepository(pieces.db_path)
+    automatisations.initialiser()
     piece = next(item for item in pieces.lister() if item["nom"] == "Salon")
-    with pytest.raises(ValueError, match="contient encore des appareils"):
-        pieces.supprimer(piece["id"])
+    automatisations.ajouter({
+        "nom": "Automatisation du salon", "heure": "20:00", "jours": [1, 2, 3, 4, 5],
+        "scene_id": "scene-test", "piece": "Salon", "extinction_minutes": None,
+    })
+
+    assert appareils.obtenir("lampe-salon") is not None
+    assert appareils.obtenir("capteur-luminosite-salon") is not None
+    assert pieces.supprimer(piece["id"]) == "Salon"
+    assert appareils.obtenir("lampe-salon") is None
+    assert appareils.obtenir("capteur-luminosite-salon") is None
+    assert automatisations.lister() == []
 
 
 def test_renommage_met_a_jour_les_automatisations(pieces):
