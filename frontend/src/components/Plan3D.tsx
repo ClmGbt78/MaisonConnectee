@@ -365,10 +365,15 @@ export default function Plan3D({ role }: { role: string }) {
       .finally(() => {
         if (actif) setChargement(false);
       });
+    apiFetch("/api/domotique/appareils?type=lumiere")
+      .then(async (response) => {
+        if (!response.ok) return [];
+        return await response.json() as LumiereDomotique[];
+      })
+      .then((donnees) => { if (actif) setLumieres(donnees); })
+      .catch(() => { /* Le plan reste consultable si le service domotique est indisponible. */ });
     return () => { actif = false; };
   }, []);
-
-  useEffect(() => { void chargerLumieres(); }, [chargerLumieres]);
 
   const modifier = (champ: keyof Brouillon, valeur: number) => {
     setBrouillon((ancien) => ancien ? { ...ancien, [champ]: valeur } : ancien);
