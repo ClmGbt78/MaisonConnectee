@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -10,6 +11,7 @@ from app.core.security import require_admin
 router = APIRouter(prefix="/sauvegardes", tags=["Sauvegardes"])
 
 
+@lru_cache(maxsize=1)
 def obtenir_gestionnaire() -> GestionnaireSauvegardes:
     settings = get_settings()
     return GestionnaireSauvegardes(
