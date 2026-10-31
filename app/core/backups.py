@@ -3,6 +3,7 @@ import logging
 import re
 import shutil
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -33,14 +34,14 @@ class GestionnaireSauvegardes:
         if not source.is_file():
             raise FileNotFoundError(f"Base SQLite introuvable : {source}")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(str(source)) as connexion_source:
-            with sqlite3.connect(str(destination)) as connexion_destination:
+        with closing(sqlite3.connect(str(source))) as connexion_source:
+            with closing(sqlite3.connect(str(destination))) as connexion_destination:
                 connexion_source.backup(connexion_destination)
                 resultat = connexion_destination.execute("PRAGMA integrity_check").fetchone()
                 if not resultat or resultat[0] != "ok":
                     raise ValueError(f"La base SQLite {source.name} est invalide.")
 
-    def creer_sauvegarde(self) -> dict:
+    def creer_sauvegarde(self, appliquer_retention: bool = True) -> dict:
         self.dossier_sauvegardes.mkdir(parents=True, exist_ok=True)
         identifiant = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         dossier_temporaire = self.dossier_sauvegardes / f".tmp-{identifiant}"
@@ -69,7 +70,8 @@ class GestionnaireSauvegardes:
             shutil.rmtree(dossier_temporaire, ignore_errors=True)
             raise
 
-        self._appliquer_retention()
+        if appliquer_retention:
+            self._appliquer_retention()
         return self._decrire_sauvegarde(dossier_final, manifeste)
 
     def _lire_manifeste(self, identifiant: str) -> tuple[Path, dict]:
@@ -126,7 +128,7 @@ class GestionnaireSauvegardes:
     def restaurer(self, identifiant: str) -> dict:
         dossier_source, _ = self._lire_manifeste(identifiant)
         # Toujours conserver l'état courant avant d'écraser une base.
-        sauvegarde_securite = self.creer_sauvegarde()
+        sauvegarde_securite = self.creer_sauvegarde(appliquer_retention=False)
         temporaires: dict[str, Path] = {}
         try:
             for nom in NOMS_BASES:
@@ -153,6 +155,7 @@ class GestionnaireSauvegardes:
             for temporaire in temporaires.values():
                 temporaire.unlink(missing_ok=True)
 
+        self._appliquer_retention()
         return {
             "identifiant_restaure": identifiant,
             "sauvegarde_securite": sauvegarde_securite["identifiant"],
