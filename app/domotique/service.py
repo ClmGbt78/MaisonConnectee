@@ -3,7 +3,7 @@ import sqlite3
 from app.domotique.adapters.base import AdaptateurAppareil
 from app.domotique.models import capacites_pour_type
 from app.domotique.repository import AppareilRepository
-from app.domotique.evolutions import evolutions
+from app.domotique.evolutions import EvolutionRepository
 
 
 class AppareilIntrouvable(Exception):
@@ -26,6 +26,8 @@ class AppareilService:
     def __init__(self, repository: AppareilRepository, adaptateur: AdaptateurAppareil):
         self.repository = repository
         self.adaptateur = adaptateur
+        self.historique = EvolutionRepository(repository.db_path)
+        self.historique.initialiser()
 
     @staticmethod
     def presenter(appareil: dict) -> dict:
@@ -69,7 +71,7 @@ class AppareilService:
         if resultat is None:
             raise AppareilIntrouvable
         if appareil["type"] == "lumiere":
-            evolutions.enregistrer(appareil_id, "activation_lumiere" if allume else "extinction_lumiere", 1 if allume else 0, "etat")
+            self.historique.enregistrer(appareil_id, "activation_lumiere" if allume else "extinction_lumiere", 1 if allume else 0, "etat")
         return self.presenter(resultat)
 
     def regler_luminosite(self, appareil_id: str, luminosite: int) -> dict:
