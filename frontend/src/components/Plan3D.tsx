@@ -1155,6 +1155,29 @@ Cette opération est irréversible. Continuer ?`)) return;
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
               {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} deplacerPiece={deplacerPieceEntiere} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
+              <group position={[0, 0.08, 0]}>
+                <mesh position={[0.68, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                  <cylinderGeometry args={[0.025, 0.025, 1.25, 8]} />
+                  <meshBasicMaterial color="#e05252" />
+                </mesh>
+                <mesh position={[1.34, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                  <coneGeometry args={[0.09, 0.2, 12]} />
+                  <meshBasicMaterial color="#e05252" />
+                </mesh>
+                <mesh position={[0, 0, 0.68]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.025, 0.025, 1.25, 8]} />
+                  <meshBasicMaterial color="#2878d0" />
+                </mesh>
+                <mesh position={[0, 0, 1.34]} rotation={[Math.PI / 2, 0, 0]}>
+                  <coneGeometry args={[0.09, 0.2, 12]} />
+                  <meshBasicMaterial color="#2878d0" />
+                </mesh>
+                <mesh><sphereGeometry args={[0.07, 12, 12]} /><meshBasicMaterial color="#64748b" /></mesh>
+                <Html position={[1.48, 0.08, 0]} center distanceFactor={10}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+X</span></Html>
+                <Html position={[-0.28, 0.08, 0]} center distanceFactor={10}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−X</span></Html>
+                <Html position={[0, 0.08, 1.5]} center distanceFactor={10}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+Z</span></Html>
+                <Html position={[0, 0.08, -0.28]} center distanceFactor={10}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−Z</span></Html>
+              </group>
               <OrbitControls makeDefault enableDamping enablePan enableRotate={rotationVueActive} enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
             <div className="plan3d-hint">Faire glisser le sol d’une pièce pour déplacer toute la pièce · Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
