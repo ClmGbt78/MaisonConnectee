@@ -110,7 +110,7 @@ class AppareilService:
         resultat = self.repository.definir_temperature_couleur(appareil_id, valeur_confirmee)
         if resultat is None:
             raise AppareilIntrouvable
-        evolutions.enregistrer(appareil_id, "temperature_couleur", valeur_confirmee, "K")
+        self.historique.enregistrer(appareil_id, "temperature_couleur", valeur_confirmee, "K")
         return self.presenter(resultat)
 
     def regler_couleur(self, appareil_id: str, couleur: str) -> dict:
