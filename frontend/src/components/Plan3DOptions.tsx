@@ -97,7 +97,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { setErreur(data.detail || "Création du scénario impossible."); return; }
-    setScenarios((old) => [...old, data as Scenario]);
+    setScenarios((old) => scenarioEditionId === null ? [...old, data as Scenario] : old.map((item) => item.id === scenarioEditionId ? data as Scenario : item));
     setNom("");
     setDescription("");
     setCibles([]);
