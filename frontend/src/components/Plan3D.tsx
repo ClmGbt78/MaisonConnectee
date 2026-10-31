@@ -534,7 +534,7 @@ export default function Plan3D({ role }: { role: string }) {
       const response = await apiFetch(`/api/domotique/pieces/${pieceSelectionnee.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom, description: pieceSelectionnee.description ?? "", couleur: pieceSelectionnee.couleur }),
+        body: JSON.stringify({ nom, description: "", couleur: pieceSelectionnee.couleur }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "Impossible de renommer cette pièce.");
