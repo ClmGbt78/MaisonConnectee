@@ -681,7 +681,6 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
           {message && <p className="plan3d-success" role="status">{message}</p>}
           {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
-          <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
           <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
             <Canvas key={reset} shadows camera={{ position: [planLargeur * 0.85, 12, planProfondeur * 0.85], fov: 42 }}>
@@ -695,6 +694,7 @@ export default function Plan3D({ role }: { role: string }) {
             </Canvas>
             <div className="plan3d-hint">Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
+          <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
         </>
       )}
       <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
