@@ -68,10 +68,11 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
   };
   const materiau = (color: string) => <meshStandardMaterial color={color} roughness={["table", "armoire", "cuisine", "meuble_tv", "table_basse", "chaise", "bureau", "table_chevet", "commode"].includes(meuble.type) ? 0.42 : meuble.type === "television" ? 0.22 : 0.88} metalness={meuble.type === "cuisine" ? 0.18 : 0.02} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
-    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; (event.target as EventTarget & { setPointerCapture?: (pointerId: number) => void }).setPointerCapture?.(event.pointerId); } : undefined}
+    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); selectionner(meuble.id); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z };  } : undefined}
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
     onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
-    onPointerCancel={() => { glisse.current = false; }}>
+    onPointerCancel={() => { glisse.current = false; }}
+    onPointerLeave={() => { glisse.current = false; }}>
     {meuble.type === "armoire" && <RoundedBox position={[0, meuble.hauteur / 2, 0]} args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} radius={0.025} smoothness={3} castShadow receiveShadow>{materiau(couleur)}</RoundedBox>}
     {selectionne && <mesh position={[0, meuble.hauteur / 2, 0]}><boxGeometry args={[meuble.largeur + 0.055, meuble.hauteur + 0.055, meuble.profondeur + 0.055]} /><meshBasicMaterial color="#38bdf8" wireframe transparent opacity={0.9} depthTest={false} /></mesh>}
     {meuble.type === "canape" && (() => {
@@ -421,7 +422,7 @@ function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, val
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       {piece.forme ? (
-        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }}>
+        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }} onPointerLeave={() => { glissementPiece.current = null; }}>
           <shapeGeometry args={[creerShape(piece.forme)]} />
           <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} side={2} />
         </mesh>
@@ -1173,9 +1174,9 @@ Cette opération est irréversible. Continuer ?`)) return;
                   <meshBasicMaterial color="#2878d0" />
                 </mesh>
                 <mesh><sphereGeometry args={[0.07, 12, 12]} /><meshBasicMaterial color="#64748b" /></mesh>
-                <Html position={[1.48, 0.08, 0]} center distanceFactor={10}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+X</span></Html>
+                <Html position={[1.48, 0.08, 0]} center distanceFactor={10} style={{ pointerEvents: "none" }}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+X</span></Html>
                 <Html position={[-0.28, 0.08, 0]} center distanceFactor={10}><span style={{ color: "#e05252", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−X</span></Html>
-                <Html position={[0, 0.08, 1.5]} center distanceFactor={10}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+Z</span></Html>
+                <Html position={[0, 0.08, 1.5]} center distanceFactor={10} style={{ pointerEvents: "none" }}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4, fontWeight: 700 }}>+Z</span></Html>
                 <Html position={[0, 0.08, -0.28]} center distanceFactor={10}><span style={{ color: "#2878d0", background: "rgba(255,255,255,.88)", padding: "2px 5px", borderRadius: 4 }}>−Z</span></Html>
               </group>
               <OrbitControls makeDefault enableDamping enablePan enableRotate={rotationVueActive} enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
