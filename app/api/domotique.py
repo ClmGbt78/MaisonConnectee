@@ -18,8 +18,12 @@ router = APIRouter(prefix="/domotique", tags=["Domotique"])
 
 # Même fichier SQLite que la version précédente : aucune migration destructive.
 repository = AppareilRepository()
-repository.initialiser()
 service = AppareilService(repository, AdaptateurSimulation())
+
+
+def initialiser_stockage() -> None:
+    """Initialise le stockage domotique au démarrage de l'application."""
+    repository.initialiser()
 
 
 class CommandeAppareil(BaseModel):
