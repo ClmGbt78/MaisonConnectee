@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import APIRouter, HTTPException, Request
 from app.core.security import JWT_AUDIENCE, JWT_ISSUER, get_jwt_secret
+from app.core.config import get_settings
 from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 
