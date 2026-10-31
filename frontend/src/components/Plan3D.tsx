@@ -151,7 +151,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
     <mesh castShadow receiveShadow>
       <primitive object={geometry} attach="geometry" />
       <meshStandardMaterial attach="material-0" {...materiau} color={finition?.mur_interieur.couleur ?? materiau.color} side={2} />
-      <meshStandardMaterial attach="material-1" {...materiau} color={finition?.mur_exterieur.couleur ?? materiau.color} side={2} />
+      <meshStandardMaterial attach="material-1" {...materiau} color={finition?.mur_exterieur.couleur ?? materiau.color} roughness={finition?.mur_exterieur.materiau === "bois" ? 0.58 : finition?.mur_exterieur.materiau === "pierre" || finition?.mur_exterieur.materiau === "brique" ? 0.96 : 0.82} side={2} />
     </mesh>
     {ouvertures.map((ouverture) => {
       const pieceOuverture = pieces.find((candidate) => candidate.ouvertures?.some((item) => item.id === ouverture.id)) ?? piece;
@@ -309,7 +309,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
       </mesh>
-      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
+      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} roughness={finition?.plafond.materiau === "bois" ? 0.58 : 0.88} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
       <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
       {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
         const voisin = mursCoincidents(piece, mur, pieces);
