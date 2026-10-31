@@ -56,7 +56,18 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
   }, [onFinitionChange]);
 
   useEffect(() => {
-    void charger().catch(() => setErreur("Impossible de charger les réglages 3D."));
+    let actif = true;
+    void Promise.resolve()
+      .then(() => {
+        if (actif) return charger();
+        return undefined;
+      })
+      .catch(() => {
+        if (actif) setErreur("Impossible de charger les réglages 3D.");
+      });
+    return () => {
+      actif = false;
+    };
   }, [charger]);
 
   const modifierFinition = (zone: keyof Omit<Finitions, "piece_id">, changement: Partial<Finition>) => {
