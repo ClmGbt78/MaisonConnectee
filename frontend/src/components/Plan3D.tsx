@@ -121,7 +121,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
       return <>
         <RoundedBox position={[0, h * 0.42, 0]} args={[w * 0.96, h * 0.5, d * 0.96]} radius={0.045} smoothness={3} castShadow>{materiau("#765338")}</RoundedBox>
         <RoundedBox position={[0, h * 0.77, 0.02]} args={[w * 0.94, h * 0.24, d * 0.88]} radius={0.045} smoothness={5} castShadow receiveShadow>{materiau("#f0f2f4")}</RoundedBox>
-        <RoundedBox position={[0, h * 0.91, d * 0.34]} args={[w * 0.94, h * 0.055, d * 0.2]} radius={0.02} smoothness={4} castShadow>{materiau("#dce5ed")}</RoundedBox>
+        <RoundedBox position={[0, h * 0.91, d * 0.34]} args={[w * 0.94, h * 0.055, d * 0.2]} radius={0.01} smoothness={4} castShadow>{materiau("#dce5ed")}</RoundedBox>
         {[-1, 1].map((c) => <RoundedBox key={c} position={[c * w * 0.23, h * 0.96, -d * 0.27]} args={[w * 0.31, h * 0.12, d * 0.2]} radius={0.025} smoothness={5} castShadow>{materiau("#ffffff")}</RoundedBox>)}
         <RoundedBox position={[0, h * 0.62, -d * 0.47]} args={[w * 1.02, h * 0.76, 0.09]} radius={0.035} smoothness={3} castShadow>{materiau("#8b7059")}</RoundedBox>
       </>;
@@ -155,7 +155,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     {meuble.type === "meuble_tv" && <>
       <RoundedBox position={[0, meuble.hauteur * 0.48, 0]} args={[meuble.largeur, meuble.hauteur * 0.78, meuble.profondeur * 0.9]} radius={0.035} smoothness={4} castShadow receiveShadow>{materiau("#8b7059")}</RoundedBox>
       {[-1, 1].map((c) => <group key={c} position={[c * meuble.largeur * 0.25, meuble.hauteur * 0.48, meuble.profondeur * 0.46]}>
-        <RoundedBox args={[meuble.largeur * 0.43, meuble.hauteur * 0.65, 0.025]} radius={0.02} smoothness={3}>{materiau("#a88b70")}</RoundedBox>
+        <RoundedBox args={[meuble.largeur * 0.43, meuble.hauteur * 0.65, 0.025]} radius={0.01} smoothness={3}>{materiau("#a88b70")}</RoundedBox>
         <mesh position={[c * meuble.largeur * 0.13, 0, 0.025]}><sphereGeometry args={[0.018, 10, 8]} />{materiau("#d5b56d")}</mesh>
       </group>)}
       {[-1, 1].map((c) => <mesh key={"pied"+c} position={[c * meuble.largeur * 0.4, meuble.hauteur * 0.08, 0]}><cylinderGeometry args={[0.025, 0.03, meuble.hauteur * 0.16, 8]} />{materiau("#765338")}</mesh>)}
