@@ -297,6 +297,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
       </mesh>
+      <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
       {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
         const voisin = mursCoincidents(piece, mur, pieces);
         if (voisin && piece.id.localeCompare(voisin.id) > 0) return null;
@@ -320,10 +321,6 @@ export default function Plan3D({ role }: { role: string }) {
   const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
   const [pasGrille, setPasGrille] = useState(0.1);
   const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
-  const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
-  const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
-  const [appareilInstallation, setAppareilInstallation] = useState("");
-  const [circuitInstallation, setCircuitInstallation] = useState("Circuit général");
   const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
   const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
   const [appareilInstallation, setAppareilInstallation] = useState("");
@@ -395,14 +392,6 @@ export default function Plan3D({ role }: { role: string }) {
       .then(async (response) => response.ok ? await response.json() as AppareilDomotique[] : [])
       .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere") as LumiereDomotique[]); } })
       .catch(() => { /* Appareils facultatifs dans la vue 3D. */ });
-    /* anciennes lumières chargées via la liste complète des appareils */
-    apiFetch("/api/domotique/appareils?type=lumiere")
-      .then(async (response) => {
-        if (!response.ok) return [];
-        return await response.json() as LumiereDomotique[];
-      })
-      .then((donnees) => { if (actif) setLumieres(donnees); })
-      .catch(() => { /* Le plan reste consultable si le service domotique est indisponible. */ });
     return () => { actif = false; };
   }, []);
 
