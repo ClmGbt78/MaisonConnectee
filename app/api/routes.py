@@ -25,7 +25,6 @@ def initialiser_base():
             )
         """)
 
-initialiser_base()
 
 @router.get("/")
 def accueil():
