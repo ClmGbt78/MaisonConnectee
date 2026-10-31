@@ -494,8 +494,8 @@ export default function Plan3D({ role }: { role: string }) {
                   </div>
                   {(pieceSelectionnee?.meubles ?? []).map((meuble) => <div className="plan3d-opening-row" key={meuble.id}>
                     <span>{({ canape: "Canapé", fauteuil: "Fauteuil", table: "Table", lit: "Lit", armoire: "Armoire", cuisine: "Meuble de cuisine" } as Record<Meuble["type"], string>)[meuble.type]}</span>
-                    <label className="plan3d-furniture-control">X <input type="number" step="0.1" value={meuble.position_x} onChange={(event) => void modifierMeuble(meuble, { position_x: Number(event.target.value) })} /></label>
-                    <label className="plan3d-furniture-control">Z <input type="number" step="0.1" value={meuble.position_z} onChange={(event) => void modifierMeuble(meuble, { position_z: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">X <input type="number" step="0.1" defaultValue={meuble.position_x} onBlur={(event) => void modifierMeuble(meuble, { position_x: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">Z <input type="number" step="0.1" defaultValue={meuble.position_z} onBlur={(event) => void modifierMeuble(meuble, { position_z: Number(event.target.value) })} /></label>
                     <button type="button" onClick={() => void modifierMeuble(meuble, { rotation: (meuble.rotation + 90) % 360 })}>Tourner 90°</button>
                     <button type="button" onClick={() => void supprimerMeuble(meuble)}>Supprimer</button>
                   </div>)}
