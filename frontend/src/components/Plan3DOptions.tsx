@@ -149,10 +149,10 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
         </select></label>
         {(["mur_interieur", "mur_exterieur", "sol", "plafond"] as const).map((zone) => <div className="plan3d-finish-control" key={zone}>
           <strong>{{ mur_interieur: "Murs intérieurs", mur_exterieur: "Murs extérieurs", sol: "Sol", plafond: "Plafond" }[zone]}</strong>
-          <label>Matériau<select value={edition[zone].materiau} onChange={(event) => modifierFinition(zone, { materiau: event.target.value })}>
+          <label>Matériau<select disabled={role !== "admin"} value={edition[zone].materiau} onChange={(event) => modifierFinition(zone, { materiau: event.target.value })}>
             {materiaux.map((item) => <option key={item} value={item}>{item.replace("_", " ")}</option>)}
           </select></label>
-          <label>Couleur<input type="color" value={edition[zone].couleur} onChange={(event) => modifierFinition(zone, { couleur: event.target.value })} /></label>
+          <label>Couleur<input disabled={role !== "admin"} type="color" value={edition[zone].couleur} onChange={(event) => modifierFinition(zone, { couleur: event.target.value })} /></label>
           <span className="plan3d-material-swatch" style={{ background: edition[zone].couleur }} />
         </div>)}
       </div>
