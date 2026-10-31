@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.security import get_current_user
-from app.core.notifications import creer_notification
+from app.core.notifications import creer_notification, initialiser_stockage_notifications
+from app.api.dashboard import initialiser_stockage_dashboard
 
 client = TestClient(app)
 
@@ -12,6 +13,7 @@ def utilisateur_test():
 
 
 def test_preferences_dashboard_sont_persistantes():
+    initialiser_stockage_dashboard()
     app.dependency_overrides[get_current_user] = utilisateur_test
     try:
         initial = client.get("/api/dashboard/preferences")
@@ -33,6 +35,7 @@ def test_preferences_dashboard_sont_persistantes():
 
 
 def test_centre_notifications_et_isolation_utilisateur():
+    initialiser_stockage_notifications()
     app.dependency_overrides[get_current_user] = utilisateur_test
     try:
         notification_id = creer_notification(987654321, "Notification de test", "Événement réservé au compte de test.", "test", "info")
