@@ -34,7 +34,7 @@ function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   };
 }
 
-function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement }: {
+function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, deplacer, validerDeplacement, peutModifier }: {
   piece: PiecePlan;
   pieces: PiecePlan[];
   mur: Ouverture["mur"];
@@ -43,6 +43,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
   nuit: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
+  peutModifier: boolean;
 }) {
   const longueur = mur === "nord" || mur === "sud" ? piece.largeur : piece.profondeur;
   const geometry = useMemo(() => {
@@ -91,7 +92,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
       const materiauCadre = nuit ? "#c3cedb" : "#f8fafc";
       return (
         <group key={ouverture.id} position={[ouverture.position, ouverture.hauteur_appui, 0.075]}>
-          <Html position={[0, ouverture.hauteur + 0.16, 0.12]} center transform distanceFactor={9} style={{ pointerEvents: "auto", width: "112px" }}>
+          {peutModifier && <Html position={[0, ouverture.hauteur + 0.16, 0.12]} center transform distanceFactor={9} style={{ pointerEvents: "auto", width: "112px" }}>
             <input
               aria-label={`Déplacer ${fenetre ? "la fenêtre" : "la porte"} sur le mur`}
               title="Faire glisser pour déplacer sur le mur"
@@ -107,7 +108,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
               }}
               style={{ width: "112px", accentColor: "#38bdf8", cursor: "ew-resize" }}
             />
-          </Html>
+          </Html>}
           <mesh position={[-ouverture.largeur / 2 + largeurCadre / 2, ouverture.hauteur / 2, 0]} castShadow>
             <boxGeometry args={[largeurCadre, ouverture.hauteur, profondeurCadre]} />
             <meshStandardMaterial color={materiauCadre} roughness={0.55} />
@@ -182,8 +183,8 @@ function mursCoincidents(piece: PiecePlan, mur: Ouverture["mur"], pieces: PieceP
   });
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement }: {
-  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean;
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier }: {
+  piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
 }) {
@@ -204,7 +205,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
         const ouverturesVoisin = voisin
           ? (voisin.ouvertures ?? []).filter((ouverture) => ouverture.mur === oppose[mur]).map((ouverture) => ({ ...ouverture, position: ouverture.position }))
           : [];
-        return <MurAvecOuvertures key={mur} piece={piece} pieces={pieces} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} />;
+        return <MurAvecOuvertures key={mur} piece={piece} pieces={pieces} mur={mur} ouvertures={[...ouverturesMur, ...ouverturesVoisin]} materiau={materiauMur} nuit={nuit} deplacer={deplacer} validerDeplacement={validerDeplacement} peutModifier={peutModifier} />;
       })}
       <Html position={[0, 0.18, 0]} center distanceFactor={13} style={{ pointerEvents: "none", whiteSpace: "nowrap" }}>
         <span className="plan3d-room-label">{piece.nom}</span>
@@ -428,7 +429,7 @@ export default function Plan3D({ role }: { role: string }) {
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.7 : 2} castShadow />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
