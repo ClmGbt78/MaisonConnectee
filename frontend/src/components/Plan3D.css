@@ -52,3 +52,8 @@
 
 .plan3d-install-label { padding: 3px 6px; border: 1px solid #64748b; border-radius: 5px; background: #172438ed; color: #e2e8f0; font: 600 9px sans-serif; }
 .plan3d-install-label-night { border-color: #647ca0; background: #0b1423ed; color: #dbeafe; }
+
+.plan3d-shape-editor { margin-top: 8px; }
+.plan3d-shape-editor > p { margin: 4px 0 8px; color: #9fb0c5; font-size: 12px; line-height: 1.5; }
+.plan3d-shape-editor > button { margin: 4px 6px 4px 0; }
+.plan3d-shape-editor .plan3d-opening-row strong { min-width: 82px; color: #dce7f5; }
