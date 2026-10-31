@@ -164,6 +164,7 @@ def test_forme_personnalisee_refuse_les_murs_croises(plan):
     forme = [
         {"x": -2, "z": -1}, {"x": 2, "z": 1},
         {"x": -2, "z": 1}, {"x": 2, "z": -1},
+        {"x": 0, "z": -2},
     ]
     with pytest.raises(ValueError, match="croiser"):
         plan.enregistrer(piece["id"], {
