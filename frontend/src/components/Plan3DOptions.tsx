@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
 import "./Plan3DOptions.css";
 
@@ -26,7 +26,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
 
-  const charger = async () => {
+  const charger = useCallback(async () => {
     const [p, a, f, s] = await Promise.all([
       apiFetch("/api/domotique/plan-3d"), apiFetch("/api/domotique/appareils"),
       apiFetch("/api/domotique/plan-3d/finitions"), apiFetch("/api/domotique/plan-3d/scenarios")
@@ -105,7 +105,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
           <label>Description<input value={description} maxLength={240} onChange={(event) => setDescription(event.target.value)} placeholder="Description facultative" /></label>
           <label>Portée<select value={portee} onChange={(event) => setPortee(event.target.value as "maison" | "selection")}><option value="maison">Toute la maison</option><option value="selection">Appareils sélectionnés</option></select></label>
         </div>
-        <div className="plan3d-device-list">{appareils.map((appareil) => <label key={appareil.id}><input type="checkbox" checked={cibles.some((item) => item.id === appareil.id)} onChange={(event) => basculerCible(appareil.id, event.target.checked ? appareil.allume ?? true : false)} />{appareil.nom} · {appareil.piece}<select aria-label={`État de ${appareil.nom}`} value={String(cibles.find((item) => item.id === appareil.id)?.allume ?? false)} onChange={(event) => basculerCible(appareil.id, event.target.value === "true")}><option value="true">Allumé</option><option value="false">Éteint</option></select></label>)}</div>
+        <div className="plan3d-device-list">{appareils.map((appareil) => <label key={appareil.id}><input type="checkbox" checked={cibles.some((item) => item.id === appareil.id)} onChange={(event) => event.target.checked ? basculerCible(appareil.id, appareil.allume ?? true) : setCibles((old) => old.filter((item) => item.id !== appareil.id))} />{appareil.nom} · {appareil.piece}<select aria-label={`État de ${appareil.nom}`} value={String(cibles.find((item) => item.id === appareil.id)?.allume ?? false)} onChange={(event) => basculerCible(appareil.id, event.target.value === "true")}><option value="true">Allumé</option><option value="false">Éteint</option></select></label>)}</div>
         <button type="button" disabled={!nom.trim() || (portee === "selection" && !cibles.length)} onClick={() => void enregistrerScenario()}>Créer le scénario</button>
       </>}
     </section>
