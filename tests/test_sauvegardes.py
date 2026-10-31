@@ -83,3 +83,29 @@ def test_refuser_la_sauvegarde_si_une_base_est_absente(tmp_path):
         service.creer_sauvegarde()
 
     assert service.lister_sauvegardes() == []
+
+def test_restaurer_une_ancienne_sauvegarde_meme_avec_retention_courte(tmp_path):
+    comptes = tmp_path / "comptes.db"
+    domotique = tmp_path / "systeme_historique.db"
+    creer_base(comptes, "compte-ancien")
+    creer_base(domotique, "maison-ancienne")
+    service = GestionnaireSauvegardes(
+        chemins_bases={
+            "comptes.db": comptes,
+            "systeme_historique.db": domotique,
+        },
+        dossier_sauvegardes=tmp_path / "backups",
+        retention=1,
+    )
+    ancienne = service.creer_sauvegarde()
+
+    with sqlite3.connect(comptes) as connexion:
+        connexion.execute("UPDATE donnees SET valeur = 'compte-recent'")
+    with sqlite3.connect(domotique) as connexion:
+        connexion.execute("UPDATE donnees SET valeur = 'maison-recente'")
+    service.creer_sauvegarde(appliquer_retention=False)
+
+    service.restaurer(ancienne["identifiant"])
+
+    assert lire_valeur(comptes) == "compte-ancien"
+    assert lire_valeur(domotique) == "maison-ancienne"
