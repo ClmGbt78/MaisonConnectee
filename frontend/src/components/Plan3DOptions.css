@@ -1,0 +1,21 @@
+.plan3d-options { display:grid; gap:16px; padding:16px; border-top:1px solid #29384d; background:#0d1728; color:#dce7f5; }
+.plan3d-options-section { display:grid; gap:12px; }
+.plan3d-options-section h3 { margin:0; font-size:15px; }
+.plan3d-options-section p { margin:0; color:#aebbd0; font-size:12px; line-height:1.5; }
+.plan3d-options-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; align-items:end; }
+.plan3d-options label { display:grid; gap:6px; color:#aebbd0; font-size:12px; }
+.plan3d-options input:not([type=checkbox]), .plan3d-options select { min-width:0; box-sizing:border-box; min-height:34px; padding:6px 8px; border:1px solid #40516a; border-radius:7px; background:#172438; color:#edf1fa; font:inherit; }
+.plan3d-finish-control { display:grid; grid-template-columns:1fr 72px; gap:8px; padding:10px; border:1px solid #29384d; border-radius:9px; background:#111d2d; }
+.plan3d-finish-control strong { grid-column:1/-1; font-size:12px; }
+.plan3d-finish-control label:first-of-type { grid-column:1/-1; }
+.plan3d-finish-control input[type=color] { width:100%; padding:2px; }
+.plan3d-material-swatch { grid-column:1/-1; height:12px; border-radius:5px; }
+.plan3d-options button { min-height:34px; padding:7px 11px; border:1px solid #376b6b; border-radius:7px; background:#193c43; color:#cffff5; cursor:pointer; }
+.plan3d-options button:disabled { opacity:.5; cursor:not-allowed; }
+.plan3d-scenario-row { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding:9px; border:1px solid #29384d; border-radius:8px; }
+.plan3d-scenario-row span { display:grid; flex:1; gap:3px; }
+.plan3d-scenario-row small { color:#aebbd0; }
+.plan3d-device-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:7px; max-height:240px; overflow:auto; }
+.plan3d-device-list label { display:grid; grid-template-columns:18px 1fr 90px; align-items:center; gap:7px; padding:7px; border:1px solid #29384d; border-radius:7px; }
+.plan3d-device-list input[type=checkbox] { accent-color:#65e3ce; }
+@media(max-width:600px){.plan3d-device-list label{grid-template-columns:18px 1fr}.plan3d-device-list select{grid-column:2}}
