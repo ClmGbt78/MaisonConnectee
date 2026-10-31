@@ -149,7 +149,8 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
   return <group position={position} rotation={[0, rotation, 0]}>
     <mesh castShadow receiveShadow>
       <primitive object={geometry} attach="geometry" />
-      <meshStandardMaterial attach="material-0" {...materiau} color={finition?.mur_interieur.couleur ?? materiau.color} side={2} />\n      <meshStandardMaterial attach="material-1" {...materiau} color={finition?.mur_exterieur.couleur ?? materiau.color} side={2} />
+      <meshStandardMaterial attach="material-0" {...materiau} color={finition?.mur_interieur.couleur ?? materiau.color} side={2} />
+      <meshStandardMaterial attach="material-1" {...materiau} color={finition?.mur_exterieur.couleur ?? materiau.color} side={2} />
     </mesh>
     {ouvertures.map((ouverture) => {
       const pieceOuverture = pieces.find((candidate) => candidate.ouvertures?.some((item) => item.id === ouverture.id)) ?? piece;
@@ -295,7 +296,8 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
   selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;
 }) {
   const opacite = transparence / 100;
-  const rugositeMur = finition?.mur_interieur.materiau === "pierre" || finition?.mur_interieur.materiau === "brique" ? 0.96 : finition?.mur_interieur.materiau === "bois" ? 0.58 : 0.82;\n  const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
+  const rugositeMur = finition?.mur_interieur.materiau === "pierre" || finition?.mur_interieur.materiau === "brique" ? 0.96 : finition?.mur_interieur.materiau === "bois" ? 0.58 : 0.82;
+  const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
   return (
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
@@ -304,7 +306,8 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
-        <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />\n      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
+        <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
+      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
       </mesh>
       <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
       {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
@@ -329,7 +332,8 @@ export default function Plan3D({ role }: { role: string }) {
   const [selection, setSelection] = useState("");
   const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
   const [pasGrille, setPasGrille] = useState(0.1);
-  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);\n  const [finitions, setFinitions] = useState<Record<string, FinitionsPiece>>({});
+  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
+  const [finitions, setFinitions] = useState<Record<string, FinitionsPiece>>({});
   const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
   const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
   const [appareilInstallation, setAppareilInstallation] = useState("");
@@ -346,7 +350,8 @@ export default function Plan3D({ role }: { role: string }) {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
-  const nuit = ambiance === "nuit";\n  const recevoirFinition = useCallback((pieceId: string, valeur: FinitionsPiece) => setFinitions((old) => ({ ...old, [pieceId]: valeur })), []);
+  const nuit = ambiance === "nuit";
+  const recevoirFinition = useCallback((pieceId: string, valeur: FinitionsPiece) => setFinitions((old) => ({ ...old, [pieceId]: valeur })), []);
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
 
@@ -675,7 +680,8 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
           {message && <p className="plan3d-success" role="status">{message}</p>}
           {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
-          <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />\n          <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
+          <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
+          <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
             <Canvas key={reset} shadows camera={{ position: [planLargeur * 0.85, 12, planProfondeur * 0.85], fov: 42 }}>
               <color attach="background" args={[nuit ? "#0b1423" : "#e8eef4"]} />
