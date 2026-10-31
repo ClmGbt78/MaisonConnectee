@@ -401,7 +401,6 @@ function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, val
     if (!peutModifier) return;
     event.stopPropagation();
     glissementPiece.current = { dx: event.point.x - piece.position_x, dz: event.point.z - piece.position_z };
-    (event.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(event.pointerId);
   };
   const poursuivreDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number } }, final: boolean) => {
     if (!peutModifier || !glissementPiece.current) return;
