@@ -248,7 +248,7 @@ Le rendu distingue les prises, interrupteurs et appareils, ajoute un quadrillage
 
 ### Scénarios domotiques et finitions du plan 3D
 
-Le plan 3D propose également un éditeur de finitions par pièce (murs intérieurs, murs extérieurs, sol et plafond), avec choix d'un matériau de finition et d'une couleur. Les réglages sont persistés dans la table additive `finitions_pieces_3d`.
+Le plan 3D propose également un éditeur de finitions par pièce (murs intérieurs, murs extérieurs, sol et plafond), avec choix d'un matériau de finition et d'une couleur. Le rendu applique les couleurs et des propriétés de surface schématiques (rugosité) ; il ne s'agit pas encore de textures photographiques haute résolution. Les réglages sont persistés dans la table additive `finitions_pieces_3d`.
 
 Les scénarios accessibles depuis le plan 3D peuvent cibler toute la maison ou uniquement une sélection d'appareils. Chaque appareil ciblé reçoit un état marche/arrêt défini par l'utilisateur. Les capteurs restent en lecture seule. Les scénarios sont enregistrés dans `scenarios_plan_3d` et appliqués via le service domotique existant ; les limites du pilote (actuellement simulé) restent inchangées. Les commandes en échec sont retournées individuellement à l'interface.
 
