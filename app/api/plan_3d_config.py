@@ -83,6 +83,8 @@ def modifier_scenario(scenario_id: int, scenario: Scenario, utilisateur: dict = 
     data["nom"] = data["nom"].strip()
     if not data["nom"] or (data["portee"] == "selection" and not data["appareils"]):
         raise HTTPException(status_code=422, detail="Nom et appareils sélectionnés obligatoires")
+    if len({item["id"] for item in data["appareils"]}) != len(data["appareils"]):
+        raise HTTPException(status_code=422, detail="Un appareil ne peut apparaître qu'une fois")
     for item in data["appareils"]:
         try:
             appareil = service_domotique.obtenir(item["id"])
