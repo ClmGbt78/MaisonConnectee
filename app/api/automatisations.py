@@ -132,7 +132,11 @@ def simuler_mesure_capteur(
         raise HTTPException(status_code=422, detail="La température doit être comprise entre -20 et 80 °C")
     if mesure.type_mesure == "presence" and mesure.valeur not in (0, 1):
         raise HTTPException(status_code=422, detail="La présence doit valoir 0 (absent) ou 1 (présent)")
-    resultat = automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)\n    from app.domotique.evolutions import evolutions\n    if mesure.type_mesure == "temperature":\n        evolutions.enregistrer(capteur_id, "temperature_mesuree", mesure.valeur, "°C")\n    return resultat
+    resultat = automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)
+    from app.domotique.evolutions import evolutions
+    if mesure.type_mesure == "temperature":
+        evolutions.enregistrer(capteur_id, "temperature_mesuree", mesure.valeur, "°C")
+    return resultat
 
 
 @router.get("/conditionnelles")
