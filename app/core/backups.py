@@ -150,15 +150,13 @@ class GestionnaireSauvegardes:
                 self._copier_base(dossier_source / nom, temporaire)
                 temporaires[nom] = temporaire
 
-            restaurees = []
             try:
                 for nom in NOMS_BASES:
                     self._copier_base(temporaires[nom], self.chemins_bases[nom])
-                    restaurees.append(nom)
             except Exception:
                 # En cas d'échec partiel, revenir à la sauvegarde de sécurité.
                 dossier_securite, _ = self._lire_manifeste(sauvegarde_securite["identifiant"])
-                for nom in restaurees:
+                for nom in NOMS_BASES:
                     self._copier_base(dossier_securite / nom, self.chemins_bases[nom])
                 raise
         finally:
