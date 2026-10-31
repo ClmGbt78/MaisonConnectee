@@ -95,7 +95,7 @@ class NouvelleConditionnelle(BaseModel):
 
 
 class MesureSimulee(BaseModel):
-    type_mesure: str = Field(pattern=r"^(luminosite|presence)$")
+    type_mesure: str = Field(pattern=r"^(luminosite|presence|temperature)$")
     valeur: float = Field(ge=0, le=2000)
 
 
@@ -128,7 +128,7 @@ def simuler_mesure_capteur(
         raise HTTPException(status_code=409, detail="Cet appareil n'est pas un capteur")
     if mesure.type_mesure == "presence" and mesure.valeur not in (0, 1):
         raise HTTPException(status_code=422, detail="La présence doit valoir 0 (absent) ou 1 (présent)")
-    return automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)
+    resultat = automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)\n    from app.domotique.evolutions import evolutions\n    if mesure.type_mesure == "temperature":\n        evolutions.enregistrer(capteur_id, "temperature_mesuree", mesure.valeur, "°C")\n    return resultat
 
 
 @router.get("/conditionnelles")
