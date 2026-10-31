@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.domotique.adapters.capteurs import AdaptateurCapteur, AdaptateurCapteurSimulation
 from app.domotique.repository import DB_PATH
+from app.domotique.evolutions import evolutions
 
 
 class AutomatisationRepository:
@@ -276,7 +277,7 @@ class MoteurAutomatisations:
                 self.service_domotique.commander(appareil["id"], False)
             self.repository.marquer_extinction(extinction["id"])
 
-        self.executer_conditions(maintenant)
+        self.executer_conditions(maintenant)\n        evolutions.executer_regles(self.service_domotique, maintenant)
 
     
     def executer_conditions(self, maintenant: datetime | None = None) -> None:
