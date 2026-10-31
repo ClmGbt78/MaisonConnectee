@@ -11,18 +11,39 @@ export default function Notifications() {
   const [filtre, setFiltre] = useState<"toutes" | "non_lues">("toutes");
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
-  const charger = useCallback(async () => {
+  const charger = useCallback(async (): Promise<Notification[]> => {
+    const response = await apiFetch("/api/notifications?limite=200");
+    if (!response.ok) throw new Error("Impossible de charger les notifications.");
+    return response.json();
+  }, []);
+  useEffect(() => {
+    let actif = true;
+    charger()
+      .then((elements) => {
+        if (actif) {
+          setNotifications(elements);
+          setErreur("");
+        }
+      })
+      .catch((cause: unknown) => {
+        if (actif) setErreur(cause instanceof Error ? cause.message : "Erreur de chargement.");
+      })
+      .finally(() => {
+        if (actif) setChargement(false);
+      });
+    return () => { actif = false; };
+  }, [charger]);
+  async function actualiser() {
+    setChargement(true);
     try {
-      const response = await apiFetch("/api/notifications?limite=200");
-      if (!response.ok) throw new Error("Impossible de charger les notifications.");
-      const elements: Notification[] = await response.json();
+      setNotifications(await charger());
       setErreur("");
-      setNotifications(elements);
     } catch (cause) {
       setErreur(cause instanceof Error ? cause.message : "Erreur de chargement.");
-    } finally { setChargement(false); }
-  }, []);
-  useEffect(() => { void charger(); }, [charger]);
+    } finally {
+      setChargement(false);
+    }
+  }
   const nonLues = useMemo(() => notifications.filter((item) => !item.lu_le).length, [notifications]);
   const visibles = filtre === "non_lues" ? notifications.filter((item) => !item.lu_le) : notifications;
 
@@ -48,7 +69,7 @@ export default function Notifications() {
   return <section className="notifications-page">
     <div className="section-heading">
       <div><h2>Centre de notifications</h2><p>Les événements importants de MaisonConnectée au même endroit.</p></div>
-      <div className="notifications-actions"><button onClick={() => void charger()}>Actualiser</button><button onClick={() => void marquerToutesCommeLues()} disabled={nonLues === 0}>Tout marquer comme lu</button></div>
+      <div className="notifications-actions"><button onClick={() => void actualiser()}>Actualiser</button><button onClick={() => void marquerToutesCommeLues()} disabled={nonLues === 0}>Tout marquer comme lu</button></div>
     </div>
     <div className="notifications-toolbar"><div className="notifications-filters">
       <button className={filtre === "toutes" ? "active" : ""} onClick={() => setFiltre("toutes")}>Toutes ({notifications.length})</button>
