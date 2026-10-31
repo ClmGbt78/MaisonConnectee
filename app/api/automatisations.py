@@ -96,7 +96,7 @@ class NouvelleConditionnelle(BaseModel):
 
 class MesureSimulee(BaseModel):
     type_mesure: str = Field(pattern=r"^(luminosite|presence|temperature)$")
-    valeur: float = Field(ge=0, le=2000)
+    valeur: float = Field(ge=-20, le=2000)
 
 
 @router.get("/ports-serie")
