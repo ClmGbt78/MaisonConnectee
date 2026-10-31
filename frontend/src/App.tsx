@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Plan3D from "./components/Plan3D";
+import FonctionnalitesAvancees from "./components/FonctionnalitesAvancees";
 import "./App.css";
 import { apiFetch, setAccessToken } from "./api";
 import {
@@ -1213,7 +1214,15 @@ function App() {
           </a>
 
           <a
-            className={`nav-item ${pageActive === "assistant" ? "active" : ""}`}
+            className={`nav-item ${pageActive === "avances" ? "active" : ""}`}
+            href="#avances"
+            onClick={(event) => { event.preventDefault(); setPageActive("avances"); }}
+          >
+            ◷ <span>Historique & avancé</span>
+          </a>
+
+          <a
+            className={`nav-item ${pageActive === "assistant" ? "active" : ""}`
             href="#assistant"
             onClick={(event) => {
               event.preventDefault();
@@ -1267,7 +1276,9 @@ function App() {
                       ? "Éclairage RGB"
                       : pageActive === "plan3d"
                         ? "Plan 3D"
-                        : "Système"}
+                        : pageActive === "avances"
+                          ? "Historique et gestion avancée"
+                          : "Système"}
             </h1>
           </div>
           
@@ -2298,6 +2309,8 @@ function App() {
           )}
         </section>
       )}
+
+        {pageActive === "avances" && <FonctionnalitesAvancees role={utilisateurConnecte.role} />}
 
         {pageActive === "plan3d" && (
           <section className="plan3d-page">
