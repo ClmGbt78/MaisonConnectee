@@ -215,3 +215,8 @@ Ces éléments sont générés à partir des ouvertures déjà enregistrées. Au
 ## Plan 3D : configuration de l’ouverture des portes
 
 Chaque porte peut être configurée avec un sens d’ouverture (gauche ou droite) et un angle de 0°, 45°, 90°, 120° ou 150°. Ces paramètres sont enregistrés avec l’ouverture et utilisés par le rendu 3D. Les fenêtres ne sont pas concernées. À l'initialisation, les colonnes manquantes sont ajoutées à la table existante avec des valeurs par défaut (gauche, 90°), sans supprimer ni réinitialiser les ouvertures enregistrées.
+
+
+## Plan 3D : déplacement interactif des ouvertures
+
+Les portes et fenêtres disposent d'un curseur de déplacement directement positionné au-dessus de leur ouverture dans la vue 3D. Il permet de régler leur position le long du mur avec un aperçu immédiat. La position est enregistrée dans SQLite à la fin du déplacement ; le curseur est limité à la longueur du mur en tenant compte de la largeur de l'ouverture. En cas d'échec de sauvegarde, le plan est rechargé depuis l'API.
