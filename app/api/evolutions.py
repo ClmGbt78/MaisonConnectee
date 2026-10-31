@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.core.security import get_current_user, require_admin
 from app.api.domotique import service
 from app.domotique.evolutions import evolutions
+from app.domotique.pieces import PiecesRepository
 
 router = APIRouter(prefix="/domotique", tags=["Historique, inventaire et automatisations avancées"])
 
@@ -83,10 +84,16 @@ def affecter_piece(appareil_id: str, item: AffectationPiece, utilisateur: dict =
         service.obtenir(appareil_id)
     except Exception as erreur:
         raise HTTPException(status_code=404, detail="Appareil introuvable") from erreur
+    nom_piece = item.piece.strip()
+    pieces = PiecesRepository(service.repository.db_path)
+    pieces.initialiser()
+    if not any(p["nom"].casefold() == nom_piece.casefold() for p in pieces.lister()):
+        try:
+            pieces.ajouter(nom_piece, "", "#365B78")
+        except sqlite3.IntegrityError:
+            pass
     with sqlite3.connect(service.repository.db_path) as db:
-        db.execute("INSERT OR IGNORE INTO pieces_domotiques (id,nom,description,couleur) VALUES (?,?,?,?)",
-                   (item.piece.strip(),item.piece.strip(),""," #365B78".strip()))
-        db.execute("UPDATE appareils_domotiques SET piece=? WHERE id=?", (item.piece.strip(),appareil_id))
+        db.execute("UPDATE appareils_domotiques SET piece=? WHERE id=?", (nom_piece,appareil_id))
     return service.obtenir(appareil_id)
 
 
