@@ -1707,3 +1707,23 @@ font-size: 26px;
 
 /* Page Plan 3D */
 .plan3d-page { display: grid; gap: 18px; }
+
+
+/* Navigation et commandes adaptées aux écrans tactiles */
+@media (max-width: 700px) {
+  .sidebar { position: sticky; top: 0; padding: 12px 14px; }
+  .sidebar nav { scrollbar-width: thin; padding-bottom: 3px; }
+  .nav-item { min-height: 42px; }
+  .main-content { padding: 18px 12px 28px; }
+  .topbar { margin-bottom: 20px; }
+  .topbar h1 { font-size: 25px; }
+  .domotics-grid, .metrics-grid, .history-grid { grid-template-columns: minmax(0, 1fr); }
+  button, select, input { touch-action: manipulation; }
+}
+@media (max-width: 420px) {
+  .sidebar { padding: 10px; }
+  .brand { font-size: 15px; }
+  .nav-item { padding: 9px 10px; font-size: 11px; }
+  .main-content { padding-inline: 10px; }
+  .section-heading { align-items: flex-start; flex-direction: column; }
+}
