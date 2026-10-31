@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -7,6 +8,9 @@ from uuid import uuid4
 
 from app.domotique.adapters.capteurs import AdaptateurCapteur, AdaptateurCapteurSimulation
 from app.domotique.repository import DB_PATH
+
+
+logger = logging.getLogger(__name__)
 
 
 class AutomatisationRepository:
@@ -254,8 +258,9 @@ class MoteurAutomatisations:
             try:
                 self.executer_cycle()
             except Exception:
-                # Une erreur ponctuelle ne doit pas arrêter les cycles suivants.
-                pass
+                # Une erreur ponctuelle ne doit pas arrêter les cycles suivants,
+                # mais elle doit être visible dans les journaux du service.
+                logger.exception("Erreur pendant un cycle du moteur d'automatisations")
             await asyncio.sleep(15)
 
     def executer_cycle(self, maintenant: datetime | None = None) -> None:
