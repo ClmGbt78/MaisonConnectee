@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.api.domotique import router as domotique_router
 from app.api.pieces import router as pieces_router
 from app.api.plan_3d import router as plan_3d_router
+from app.api.meubles_3d import router as meubles_3d_router
 from app.api.comptes import router as comptes_router
 from app.api.automatisations import router as automatisations_router, automatisations
 from app.domotique.automations import MoteurAutomatisations
@@ -42,6 +43,7 @@ app.include_router(router, prefix="/api")
 app.include_router(domotique_router, prefix="/api")
 app.include_router(pieces_router, prefix="/api")
 app.include_router(plan_3d_router, prefix="/api")
+app.include_router(meubles_3d_router, prefix="/api")
 app.include_router(rgb_router, prefix="/api")
 app.include_router(comptes_router, prefix="/api")
 app.include_router(automatisations_router, prefix="/api")
