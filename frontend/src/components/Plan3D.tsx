@@ -449,6 +449,7 @@ export default function Plan3D({ role }: { role: string }) {
         profondeur: nouvellePiece.profondeur,
         hauteur: nouvellePiece.hauteur,
         etage: nouvellePiece.etage,
+        forme: null,
       };
       const geometrieResponse = await apiFetch("/api/domotique/plan-3d/" + nouvellePiece.id, {
         method: "PUT",
