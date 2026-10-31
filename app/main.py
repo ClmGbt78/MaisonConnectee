@@ -4,12 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.rgb import router as rgb_router
-from app.api.routes import router
+from app.api.routes import router, initialiser_base as initialiser_base_systeme
 from app.core.config import get_settings
-from app.api.domotique import router as domotique_router
-from app.api.pieces import router as pieces_router
-from app.api.plan_3d import router as plan_3d_router
-from app.api.plan_3d_config import router as plan_3d_config_router
+from app.api.domotique import router as domotique_router, initialiser_stockage as initialiser_stockage_domotique
+from app.api.pieces import router as pieces_router, initialiser_stockage as initialiser_stockage_pieces
+from app.api.plan_3d import router as plan_3d_router, initialiser_stockage as initialiser_stockage_plan_3d
+from app.api.plan_3d_config import router as plan_3d_config_router, initialiser_stockage as initialiser_stockage_plan_3d_config
 from app.api.meubles_3d import router as meubles_3d_router
 from app.api.comptes import router as comptes_router, initialiser_base
 from app.api.automatisations import (
@@ -28,7 +28,12 @@ moteur_automatisations = MoteurAutomatisations(automatisations, service_domotiqu
 async def lifespan(app: FastAPI):
     # Les schémas SQLite sont créés explicitement au démarrage de l'API.
     initialiser_base()
+    initialiser_base_systeme()
+    initialiser_stockage_domotique()
     initialiser_stockages()
+    initialiser_stockage_pieces()
+    initialiser_stockage_plan_3d()
+    initialiser_stockage_plan_3d_config()
 
     await moteur_automatisations.demarrer()
     try:
