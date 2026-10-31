@@ -47,3 +47,5 @@
 .plan3d-light-label { padding: 3px 6px; border: 1px solid #9b8357; border-radius: 5px; background: #211b12e8; color: #ffe8b8; font: 600 9px sans-serif; }
 .plan3d-night .plan3d-light-label { border-color: #657ca4; background: #111c30ed; color: #d9e8ff; }
 .plan3d-toolbar select { min-width: 110px; }
+
+.plan3d-light-label-night { border-color: #657ca4; background: #111c30ed; color: #d9e8ff; }
