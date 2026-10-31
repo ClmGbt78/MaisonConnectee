@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from app.core.security import get_current_user, require_admin
+from app.core.security import require_admin
 from app.domotique.plan_3d import Plan3DRepository
 
 router = APIRouter(prefix="/domotique/plan-3d", tags=["Mobilier 3D"])
