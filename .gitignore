@@ -24,3 +24,6 @@ Thumbs.db
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Sauvegardes locales SQLite
+backups/
