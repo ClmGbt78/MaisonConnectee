@@ -390,7 +390,7 @@ export default function Plan3D({ role }: { role: string }) {
       });
     apiFetch("/api/domotique/appareils")
       .then(async (response) => response.ok ? await response.json() as AppareilDomotique[] : [])
-      .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere") as LumiereDomotique[]); } })
+      .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere").map((item) => ({ ...item, allume: item.allume ?? false })) as LumiereDomotique[]); } })
       .catch(() => { /* Appareils facultatifs dans la vue 3D. */ });
     return () => { actif = false; };
   }, []);
