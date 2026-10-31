@@ -804,6 +804,22 @@ Cette opération est irréversible. Continuer ?`)) return;
 
   const supprimerSommet = (index: number) => setBrouillon((ancien) => ancien?.forme && ancien.forme.length > 4 ? { ...ancien, forme: ancien.forme.filter((_, i) => i !== index) } : ancien);
 
+  const fusionnerSommets = (index: number) => {
+    setBrouillon((ancien) => {
+      if (!ancien?.forme || ancien.forme.length <= 3) return ancien;
+      const suivant = (index + 1) % ancien.forme.length;
+      const premier = ancien.forme[index];
+      const second = ancien.forme[suivant];
+      const fusion = {
+        x: Number(((premier.x + second.x) / 2).toFixed(2)),
+        z: Number(((premier.z + second.z) / 2).toFixed(2)),
+      };
+      const forme = ancien.forme.map((sommet, i) => i === index ? fusion : sommet).filter((_, i) => i !== suivant);
+      return { ...ancien, forme };
+    });
+    setMessage("");
+  };
+
   const deplacerPieceEntiere = useCallback(async (piece: PiecePlan, x: number, z: number, final: boolean) => {
     setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? { ...ancienne, position_x: x, position_z: z } : ancienne));
     if (selection === piece.id) setBrouillon((ancien) => ancien ? { ...ancien, position_x: x, position_z: z } : ancien);
@@ -1084,9 +1100,11 @@ Cette opération est irréversible. Continuer ?`)) return;
                         <label className="plan3d-furniture-control">X (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.x} onChange={(event) => modifierSommet(index, "x", Number(event.target.value))} /></label>
                         <label className="plan3d-furniture-control">Z (m) <input type="number" min="-15" max="15" step="0.1" value={sommet.z} onChange={(event) => modifierSommet(index, "z", Number(event.target.value))} /></label>
                         <button type="button" disabled={brouillon.forme.length <= 4} onClick={() => supprimerSommet(index)}>Retirer</button>
+                        <button type="button" disabled={brouillon.forme.length <= 3} onClick={() => fusionnerSommets(index)}>Fusionner avec le suivant</button>
                       </div>)}
                       <button type="button" disabled={brouillon.forme.length >= 12} onClick={ajouterSommet}>Ajouter un sommet sur le mur le plus long</button>
                       <button type="button" onClick={() => setBrouillon((ancien) => ancien ? { ...ancien, forme: null } : ancien)}>Revenir au rectangle</button>
+                      <p>« Fusionner avec le suivant » regroupe deux sommets voisins en un point situé à mi-distance. La forme conserve au moins trois sommets.</p>
                       <p>Les portes et fenêtres existantes sont conservées, mais ne sont pas encore affichées sur une forme libre.</p>
                     </>}
                   </section>
