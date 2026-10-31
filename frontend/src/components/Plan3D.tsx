@@ -78,6 +78,7 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit, deplacer, v
       <meshStandardMaterial {...materiau} side={2} />
     </mesh>
     {ouvertures.map((ouverture) => {
+      const pieceOuverture = pieces.find((candidate) => candidate.ouvertures?.some((item) => item.id === ouverture.id)) ?? piece;
       const fenetre = ouverture.type === "fenetre";
       const positionMin = -longueur / 2 + ouverture.largeur / 2;
       const positionMax = longueur / 2 - ouverture.largeur / 2;
@@ -99,9 +100,9 @@ function MurAvecOuvertures({ piece, mur, ouvertures, materiau, nuit, deplacer, v
               step={0.05}
               value={Math.min(positionMax, Math.max(positionMin, ouverture.position))}
               onChange={(event) => deplacer(piece.id, ouverture.id, Number(event.target.value))}
-              onPointerUp={(event) => validerDeplacement(piece, ouverture, Number((event.currentTarget as HTMLInputElement).value))}
+              onPointerUp={(event) => validerDeplacement(pieceOuverture, ouverture, Number((event.currentTarget as HTMLInputElement).value))}
               onKeyUp={(event) => {
-                if (event.key.startsWith("Arrow")) validerDeplacement(piece, ouverture, Number((event.currentTarget as HTMLInputElement).value));
+                if (event.key.startsWith("Arrow")) validerDeplacement(pieceOuverture, ouverture, Number((event.currentTarget as HTMLInputElement).value));
               }}
               style={{ width: "112px", accentColor: "#38bdf8", cursor: "ew-resize" }}
             />
