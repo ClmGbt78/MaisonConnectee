@@ -9,7 +9,7 @@ repository = Plan3DRepository()
 
 
 class Meuble3D(BaseModel):
-    type: str = Field(pattern=r"^(canape|fauteuil|table|lit|armoire|cuisine)$")
+    type: str = Field(pattern=r"^(canape|fauteuil|table|lit|armoire|cuisine|television|meuble_tv|table_basse|chaise|bureau|table_chevet|commode)$")
     position_x: float = Field(ge=-15, le=15)
     position_z: float = Field(ge=-15, le=15)
     largeur: float = Field(gt=0.1, le=10)

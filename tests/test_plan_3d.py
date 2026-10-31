@@ -192,3 +192,70 @@ def test_migration_ajoute_forme_aux_geometries_existantes(tmp_path):
     repository.initialiser()
     piece = repository.lister()[0]
     assert piece["forme"] is None
+
+def test_catalogue_accepte_les_nouveaux_meubles(plan):
+    piece = plan.lister()[0]
+    types = [
+        "television", "meuble_tv", "table_basse", "chaise",
+        "bureau", "table_chevet", "commode",
+    ]
+    for type_meuble in types:
+        meuble = plan.ajouter_meuble(piece["id"], {
+            "type": type_meuble,
+            "position_x": 0,
+            "position_z": 0,
+            "largeur": 0.8,
+            "profondeur": 0.6,
+            "hauteur": 1.0,
+            "rotation": 0,
+        })
+        assert meuble["type"] == type_meuble
+
+
+def test_migration_catalogue_meubles_conserve_les_meubles_existants(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "ancienne-base-meubles.db"
+    AppareilRepository(db).initialiser()
+    pieces = PiecesRepository(db)
+    pieces.initialiser()
+    piece = pieces.lister()[0]
+    with sqlite3.connect(db) as connexion:
+        connexion.execute("""
+            CREATE TABLE meubles_pieces_3d (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                piece_id TEXT NOT NULL,
+                type TEXT NOT NULL CHECK (type IN ('canape', 'fauteuil', 'table', 'lit', 'armoire', 'cuisine')),
+                position_x REAL NOT NULL DEFAULT 0,
+                position_z REAL NOT NULL DEFAULT 0,
+                largeur REAL NOT NULL,
+                profondeur REAL NOT NULL,
+                hauteur REAL NOT NULL,
+                rotation REAL NOT NULL DEFAULT 0,
+                FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
+            )
+        """)
+        connexion.execute("""
+            INSERT INTO meubles_pieces_3d
+                (piece_id, type, position_x, position_z, largeur, profondeur, hauteur, rotation)
+            VALUES (?, 'canape', 0.5, -0.25, 2.1, 0.9, 0.85, 90)
+        """, (piece["id"],))
+
+    repository = Plan3DRepository(db)
+    repository.initialiser()
+    meubles = repository.lister()[0]["meubles"]
+    assert len(meubles) == 1
+    assert meubles[0]["type"] == "canape"
+    assert meubles[0]["position_x"] == 0.5
+    assert meubles[0]["rotation"] == 90
+
+    television = repository.ajouter_meuble(piece["id"], {
+        "type": "television",
+        "position_x": 0,
+        "position_z": 0,
+        "largeur": 1.25,
+        "profondeur": 0.3,
+        "hauteur": 0.9,
+        "rotation": 0,
+    })
+    assert television["type"] == "television"
