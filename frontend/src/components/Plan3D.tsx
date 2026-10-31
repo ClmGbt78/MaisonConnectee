@@ -410,7 +410,7 @@ export default function Plan3D({ role }: { role: string }) {
           body: JSON.stringify({
             position_x: piece.position_x, position_z: piece.position_z,
             largeur: piece.largeur, profondeur: piece.profondeur,
-            hauteur: piece.hauteur, etage: piece.etage,
+            hauteur: piece.hauteur, etage: piece.etage, forme: piece.forme ?? null,
           }),
         });
         if (!sauvegarde.ok) throw new Error("Impossible de préserver la position des pièces déjà présentes.");
@@ -729,8 +729,8 @@ export default function Plan3D({ role }: { role: string }) {
   };
 
   const piecesVisibles = etageAffiche === "tous" ? pieces : pieces.filter((piece) => piece.etage === Number(etageAffiche));
-  const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + piece.largeur / 2 + 3), 16);
-  const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + piece.profondeur / 2 + 3), 16);
+  const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.x))) : piece.largeur / 2) + 3), 16);
+  const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.z))) : piece.profondeur / 2) + 3), 16);
 
   return (
     <div className={"plan3d-shell " + (nuit ? "plan3d-night" : "plan3d-day")}>
