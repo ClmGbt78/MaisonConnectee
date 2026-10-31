@@ -41,6 +41,20 @@ class Plan3DRepository:
                     FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
                 )
             """)
+            connexion.execute("""
+                CREATE TABLE IF NOT EXISTS meubles_pieces_3d (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    piece_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK (type IN ('canape', 'fauteuil', 'table', 'lit', 'armoire', 'cuisine')),
+                    position_x REAL NOT NULL DEFAULT 0,
+                    position_z REAL NOT NULL DEFAULT 0,
+                    largeur REAL NOT NULL,
+                    profondeur REAL NOT NULL,
+                    hauteur REAL NOT NULL,
+                    rotation REAL NOT NULL DEFAULT 0,
+                    FOREIGN KEY (piece_id) REFERENCES pieces_domotiques(id) ON DELETE CASCADE
+                )
+            """)
             colonnes = {ligne[1] for ligne in connexion.execute("PRAGMA table_info(ouvertures_pieces_3d)")}
             if "sens_ouverture" not in colonnes:
                 connexion.execute("ALTER TABLE ouvertures_pieces_3d ADD COLUMN sens_ouverture TEXT NOT NULL DEFAULT 'gauche'")
@@ -70,7 +84,7 @@ class Plan3DRepository:
                     "hauteur": 2.7,
                     "etage": 0,
                 }
-            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"])})
+            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"])})
         return resultat
 
     def enregistrer(self, piece_id: str, donnees: dict) -> dict | None:
@@ -98,6 +112,63 @@ class Plan3DRepository:
                 donnees["hauteur"], donnees["etage"],
             ))
         return next((piece for piece in self.lister() if piece["id"] == piece_id), None)
+    def _lister_meubles(self, piece_id: str) -> list[dict]:
+        with sqlite3.connect(self.db_path) as connexion:
+            connexion.row_factory = sqlite3.Row
+            lignes = connexion.execute(
+                "SELECT * FROM meubles_pieces_3d WHERE piece_id = ? ORDER BY id",
+                (piece_id,),
+            ).fetchall()
+        return [dict(ligne) for ligne in lignes]
+
+    def ajouter_meuble(self, piece_id: str, donnees: dict) -> dict | None:
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
+        if piece is None:
+            return None
+        self._valider_meuble(piece, donnees)
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute("""
+                INSERT INTO meubles_pieces_3d
+                    (piece_id, type, position_x, position_z, largeur, profondeur, hauteur, rotation)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (piece_id, donnees["type"], donnees["position_x"], donnees["position_z"],
+                  donnees["largeur"], donnees["profondeur"], donnees["hauteur"], donnees["rotation"]))
+            meuble_id = curseur.lastrowid
+        return next(item for item in self._lister_meubles(piece_id) if item["id"] == meuble_id)
+
+    def modifier_meuble(self, piece_id: str, meuble_id: int, donnees: dict) -> dict | None:
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
+        if piece is None:
+            return None
+        self._valider_meuble(piece, donnees)
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute("""
+                UPDATE meubles_pieces_3d SET type=?, position_x=?, position_z=?, largeur=?,
+                    profondeur=?, hauteur=?, rotation=? WHERE id=? AND piece_id=?
+            """, (donnees["type"], donnees["position_x"], donnees["position_z"], donnees["largeur"],
+                  donnees["profondeur"], donnees["hauteur"], donnees["rotation"], meuble_id, piece_id))
+            if curseur.rowcount == 0:
+                return None
+        return next(item for item in self._lister_meubles(piece_id) if item["id"] == meuble_id)
+
+    def supprimer_meuble(self, piece_id: str, meuble_id: int) -> bool:
+        with sqlite3.connect(self.db_path) as connexion:
+            curseur = connexion.execute(
+                "DELETE FROM meubles_pieces_3d WHERE id=? AND piece_id=?", (meuble_id, piece_id)
+            )
+        return curseur.rowcount > 0
+
+    @staticmethod
+    def _valider_meuble(piece: dict, meuble: dict) -> None:
+        if meuble["largeur"] <= 0 or meuble["profondeur"] <= 0 or meuble["hauteur"] <= 0:
+            raise ValueError("Les dimensions du meuble doivent être positives.")
+        demi_x = meuble["largeur"] / 2
+        demi_z = meuble["profondeur"] / 2
+        if abs(meuble["position_x"]) + demi_x > piece["largeur"] / 2 or abs(meuble["position_z"]) + demi_z > piece["profondeur"] / 2:
+            raise ValueError("Le meuble doit rester entièrement dans la pièce.")
+        if meuble["hauteur"] > piece["hauteur"]:
+            raise ValueError("Le meuble ne peut pas dépasser la hauteur de la pièce.")
+
     def _lister_ouvertures(self, piece_id: str) -> list[dict]:
         with sqlite3.connect(self.db_path) as connexion:
             connexion.row_factory = sqlite3.Row
