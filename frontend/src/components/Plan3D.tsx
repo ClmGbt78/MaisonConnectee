@@ -523,11 +523,9 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
-  const renommerPiece = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const renommerPiece = async (nomSaisi: string) => {
     if (!pieceSelectionnee) return;
-    const champ = event.currentTarget.elements.namedItem("nouveau-nom-piece");
-    const nom = champ instanceof HTMLInputElement ? champ.value.trim() : "";
+    const nom = nomSaisi.trim();
     if (!nom) { setErreur("Le nom de la pièce est obligatoire."); return; }
     if (nom.toLocaleLowerCase() === pieceSelectionnee.nom.toLocaleLowerCase()) return;
     setErreur("");
@@ -1019,12 +1017,12 @@ Cette opération est irréversible. Continuer ?`)) return;
               <form className="plan3d-room-form" onSubmit={enregistrer}>
                 <label>Pièce à modifier<select value={selection} onChange={(event) => { const id = event.target.value; setSelection(id); setBrouillon(creerBrouillon(pieces.find((piece) => piece.id === id))); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
                 <button type="button" className="plan3d-danger-button" onClick={() => void supprimerPieceSelectionnee()} disabled={!pieceSelectionnee}>Supprimer la pièce sélectionnée</button>
-                {pieceSelectionnee && <form className="plan3d-opening-form" onSubmit={(event) => void renommerPiece(event)}>
+                {pieceSelectionnee && <div className="plan3d-opening-form">
                   <label>Nouveau nom de la pièce
-                    <input key={pieceSelectionnee.id + ":" + pieceSelectionnee.nom} name="nouveau-nom-piece" defaultValue={pieceSelectionnee.nom} maxLength={60} required />
+                    <input id="nom-piece-a-renommer" key={pieceSelectionnee.id + ":" + pieceSelectionnee.nom} defaultValue={pieceSelectionnee.nom} maxLength={60} required />
                   </label>
-                  <button type="submit">Renommer la pièce</button>
-                </form>}
+                  <button type="button" onClick={() => void renommerPiece((document.getElementById("nom-piece-a-renommer") as HTMLInputElement | null)?.value ?? "")}>Renommer la pièce</button>
+                </div>}
 
                 {brouillon && <>
                   <label>Position X (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_x} onChange={(event) => modifier("position_x", Number(event.target.value))} /></label>
