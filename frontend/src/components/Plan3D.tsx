@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Html, OrbitControls, RoundedBox } from "@react-three/drei";
+import { Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
 import "./Plan3D.css";
@@ -265,7 +265,13 @@ function LuminairePiece3D({ lumieres, nuit }: { lumieres: LumiereDomotique[]; nu
 }
 
 function InstallationPiece3D({ elements, appareils, nuit, commander }: { elements: ElementInstallation[]; appareils: AppareilDomotique[]; nuit: boolean; commander: (appareil: AppareilDomotique) => void }) {
-  return <group>{elements.map((element) => {
+  const circuits = elements.reduce<Record<string, ElementInstallation[]>>((groupes, element) => {
+    (groupes[element.circuit] ??= []).push(element);
+    return groupes;
+  }, {});
+  return <group>
+    {Object.entries(circuits).filter(([, membres]) => membres.length > 1).map(([circuit, membres]) => <Line key={circuit} points={membres.map((element) => [element.position_x, 0.09, element.position_z] as [number, number, number])} color={nuit ? "#eab308" : "#b7791f"} lineWidth={1.5} dashed dashSize={0.12} gapSize={0.08} />)}
+    {elements.map((element) => {
     const appareil = appareils.find((item) => item.id === element.appareil_id);
     const couleur = element.type === "prise" ? "#e5e7eb" : element.type === "interrupteur" ? "#fbbf24" : appareil?.allume ? "#34d399" : "#64748b";
     return <group key={element.id} position={[element.position_x, element.hauteur, element.position_z]} rotation={[0, element.orientation === "est" ? Math.PI / 2 : element.orientation === "ouest" ? -Math.PI / 2 : element.orientation === "sud" ? Math.PI : 0, 0]}
