@@ -95,8 +95,8 @@ class NouvelleConditionnelle(BaseModel):
 
 
 class MesureSimulee(BaseModel):
-    type_mesure: str = Field(pattern=r"^(luminosite|presence)$")
-    valeur: float = Field(ge=0, le=2000)
+    type_mesure: str = Field(pattern=r"^(luminosite|presence|temperature)$")
+    valeur: float = Field(ge=-20, le=2000)
 
 
 @router.get("/ports-serie")
@@ -126,9 +126,17 @@ def simuler_mesure_capteur(
         raise HTTPException(status_code=404, detail="Capteur introuvable")
     if capteur["type"] != "capteur":
         raise HTTPException(status_code=409, detail="Cet appareil n'est pas un capteur")
+    if mesure.type_mesure == "luminosite" and not 0 <= mesure.valeur <= 100:
+        raise HTTPException(status_code=422, detail="La luminosité doit être comprise entre 0 et 100")
+    if mesure.type_mesure == "temperature" and not -20 <= mesure.valeur <= 80:
+        raise HTTPException(status_code=422, detail="La température doit être comprise entre -20 et 80 °C")
     if mesure.type_mesure == "presence" and mesure.valeur not in (0, 1):
         raise HTTPException(status_code=422, detail="La présence doit valoir 0 (absent) ou 1 (présent)")
-    return automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)
+    resultat = automatisations.enregistrer_mesure(capteur_id, mesure.type_mesure, mesure.valeur)
+    from app.domotique.evolutions import evolutions
+    if mesure.type_mesure == "temperature":
+        evolutions.enregistrer(capteur_id, "temperature_mesuree", mesure.valeur, "°C")
+    return resultat
 
 
 @router.get("/conditionnelles")
