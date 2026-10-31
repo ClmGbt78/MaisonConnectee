@@ -220,3 +220,8 @@ Chaque porte peut être configurée avec un sens d’ouverture (gauche ou droite
 ## Plan 3D : déplacement interactif des ouvertures
 
 Les portes et fenêtres disposent d'un curseur de déplacement directement positionné au-dessus de leur ouverture dans la vue 3D. Il permet de régler leur position le long du mur avec un aperçu immédiat. La position est enregistrée dans SQLite à la fin du déplacement ; le curseur est limité à la longueur du mur en tenant compte de la largeur de l'ouverture. En cas d'échec de sauvegarde, le plan est rechargé depuis l'API.
+
+
+## Plan 3D : mobilier
+
+Le plan 3D permet aux administrateurs d'ajouter des meubles schématiques (canapé, fauteuil, table, lit, armoire et meuble de cuisine), de modifier leur position dans la pièce, de les tourner par pas de 90° et de les supprimer. Les meubles sont enregistrés dans la table additive `meubles_pieces_3d` de SQLite. La création de cette table ne supprime ni ne réinitialise les données existantes. Les meubles doivent rester dans les limites de la pièce.
