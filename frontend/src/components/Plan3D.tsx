@@ -70,13 +70,40 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer, selectionne, sel
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
     onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
     onPointerCancel={() => { glisse.current = false; }}>
-    <RoundedBox position={[0, meuble.hauteur / 2, 0]} args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} radius={Math.min(0.045, meuble.hauteur * 0.08)} smoothness={3} castShadow receiveShadow>{materiau(couleur)}</RoundedBox>
+    {meuble.type !== "canape" && <RoundedBox position={[0, meuble.hauteur / 2, 0]} args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} radius={Math.min(0.045, meuble.hauteur * 0.08)} smoothness={3} castShadow receiveShadow>{materiau(couleur)}</RoundedBox>}
     {selectionne && <mesh position={[0, meuble.hauteur / 2, 0]}><boxGeometry args={[meuble.largeur + 0.055, meuble.hauteur + 0.055, meuble.profondeur + 0.055]} /><meshBasicMaterial color="#38bdf8" wireframe transparent opacity={0.9} depthTest={false} /></mesh>}
-    {meuble.type === "canape" && <>
-      <mesh position={[0, meuble.hauteur * 0.76, -meuble.profondeur * 0.38]} castShadow><boxGeometry args={[meuble.largeur * 0.92, meuble.hauteur * 0.42, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
-      {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.56, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.48, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
-      <RoundedBox position={[0, meuble.hauteur * 0.57, 0.08]} args={[meuble.largeur * 0.68, meuble.hauteur * 0.16, meuble.profondeur * 0.48]} radius={0.055} smoothness={3} castShadow>{materiau("#7896a8")}</RoundedBox>
-    </>}
+    {meuble.type === "canape" && (() => {
+      const h = meuble.hauteur;
+      const w = meuble.largeur;
+      const d = meuble.profondeur;
+      const rayon = Math.max(0.025, Math.min(0.09, h * 0.16, w * 0.035, d * 0.12));
+      const piedsH = Math.max(0.045, Math.min(0.11, h * 0.16));
+      const assiseY = piedsH + h * 0.27;
+      const assiseH = h * 0.22;
+      const dossierH = h * 0.48;
+      const dossierY = piedsH + h * 0.68;
+      const coussinLargeur = w * 0.39;
+      return <>
+        <RoundedBox position={[0, piedsH + h * 0.13, 0]} args={[w * 0.88, h * 0.22, d * 0.86]} radius={rayon * 0.45} smoothness={3} castShadow>{materiau("#344957")}</RoundedBox>
+        {[-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * w * 0.39, piedsH / 2, z * d * 0.37]} castShadow>
+          <cylinderGeometry args={[0.025, 0.032, piedsH, 8]} />{materiau("#765338")}
+        </mesh>))}
+        {[-1, 1].map((cote) => <RoundedBox key={"assise-" + cote} position={[cote * w * 0.205, assiseY, d * 0.055]} args={[coussinLargeur, assiseH, d * 0.66]} radius={rayon} smoothness={5} castShadow receiveShadow>
+          {materiau(cote === -1 ? "#7896a8" : "#6f8d9e")}
+        </RoundedBox>)}
+        <group position={[0, dossierY, -d * 0.34]} rotation={[-0.12, 0, 0]}>
+          {[-1, 1].map((cote) => <RoundedBox key={"dossier-" + cote} position={[cote * w * 0.205, 0, 0]} args={[coussinLargeur, dossierH, d * 0.19]} radius={rayon} smoothness={5} castShadow receiveShadow>
+            {materiau("#496b7e")}
+          </RoundedBox>)}
+        </group>
+        {[-1, 1].map((cote) => <RoundedBox key={"accoudoir-" + cote} position={[cote * w * 0.44, piedsH + h * 0.39, d * 0.015]} args={[w * 0.13, h * 0.48, d * 0.82]} radius={rayon * 0.85} smoothness={5} castShadow receiveShadow>
+          {materiau("#405f73")}
+        </RoundedBox>)}
+        {[-1, 1].map((cote) => <RoundedBox key={"coussin-" + cote} position={[cote * w * 0.29, dossierY - h * 0.04, -d * 0.19]} rotation={[-0.12, 0, cote * 0.08]} args={[w * 0.19, h * 0.23, d * 0.12]} radius={rayon * 0.9} smoothness={5} castShadow>
+          {materiau("#c1d0d8")}
+        </RoundedBox>)}
+      </>;
+    })()}
     {meuble.type === "fauteuil" && <>
       <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.38]}><boxGeometry args={[meuble.largeur * 0.88, meuble.hauteur * 0.4, meuble.profondeur * 0.18]} />{materiau("#405f73")}</mesh>
       {[-1, 1].map((c) => <mesh key={c} position={[c * meuble.largeur * 0.43, meuble.hauteur * 0.55, 0]}><boxGeometry args={[meuble.largeur * 0.14, meuble.hauteur * 0.45, meuble.profondeur]} />{materiau("#405f73")}</mesh>)}
