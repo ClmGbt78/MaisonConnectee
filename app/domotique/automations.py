@@ -279,7 +279,8 @@ class MoteurAutomatisations:
                 self.service_domotique.commander(appareil["id"], False)
             self.repository.marquer_extinction(extinction["id"])
 
-        self.executer_conditions(maintenant)\n        self.evolutions.executer_regles(self.service_domotique, maintenant)
+        self.executer_conditions(maintenant)
+        self.evolutions.executer_regles(self.service_domotique, maintenant)
 
     
     def executer_conditions(self, maintenant: datetime | None = None) -> None:
