@@ -6,7 +6,6 @@ from app.domotique.plan_3d import Plan3DRepository
 
 router = APIRouter(prefix="/domotique/plan-3d", tags=["Mobilier 3D"])
 repository = Plan3DRepository()
-repository.initialiser()
 
 
 class Meuble3D(BaseModel):
