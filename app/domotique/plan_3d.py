@@ -98,7 +98,7 @@ class Plan3DRepository:
                     "hauteur": 2.7,
                     "etage": 0,
                 }
-            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"])})
+            resultat.append({**piece, **geometrie, "ouvertures": self._lister_ouvertures(piece["id"]), "meubles": self._lister_meubles(piece["id"]), "installations": self.lister_installations(piece["id"])})
         return resultat
 
     def enregistrer(self, piece_id: str, donnees: dict) -> dict | None:
