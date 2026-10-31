@@ -32,7 +32,7 @@ class GeometriePiece(BaseModel):
 def importer_plan_rez_de_chaussee(utilisateur: dict = Depends(require_admin)):
     try:
         return repository.importer_plan_rez_de_chaussee()
-    except (ValueError, Exception) as erreur:
+    except Exception as erreur:
         raise HTTPException(status_code=409, detail=f"Import du plan impossible : {erreur}") from erreur
 
 
