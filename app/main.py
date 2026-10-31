@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.rgb import router as rgb_router
 from app.api.routes import router, initialiser_base as initialiser_base_systeme
 from app.api.sauvegardes import router as sauvegardes_router, obtenir_gestionnaire
+from app.api.dashboard import router as dashboard_router, initialiser_stockage_dashboard
+from app.api.notifications import router as notifications_router
+from app.core.notifications import initialiser_stockage_notifications
 from app.core.config import get_settings
 from app.core.usb_backups import GestionnaireCopieUSB
 from app.api.domotique import router as domotique_router, initialiser_stockage as initialiser_stockage_domotique
@@ -61,6 +64,8 @@ async def lifespan(app: FastAPI):
     from app.core.security import get_jwt_secret
     get_jwt_secret()
     initialiser_base()
+    initialiser_stockage_dashboard()
+    initialiser_stockage_notifications()
     initialiser_base_systeme()
     initialiser_stockage_domotique()
     initialiser_stockages()
@@ -127,3 +132,5 @@ app.include_router(rgb_router, prefix="/api")
 app.include_router(comptes_router, prefix="/api")
 app.include_router(automatisations_router, prefix="/api")
 app.include_router(sauvegardes_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")

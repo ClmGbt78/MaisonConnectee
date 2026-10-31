@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import Plan3D from "./components/Plan3D";
+import Dashboard from "./components/Dashboard";
+import Notifications from "./components/Notifications";
+import AssistantIA from "./components/AssistantIA";
 import "./App.css";
 import { apiFetch, setAccessToken } from "./api";
 import {
@@ -88,30 +91,6 @@ type HistoriqueIndicateur = {
   disque_pct: number;
 };
 
-const modules = [
-  {
-    icon: "⌂",
-    name: "Domotique",
-    description: "Gestion de la maison",
-    status: "En préparation",
-    color: "blue",
-  },
-  {
-    icon: "✧",
-    name: "Assistant IA",
-    description: "Votre assistant personnel",
-    status: "Non configuré",
-    color: "purple",
-  },
-  {
-    icon: "◉",
-    name: "Éclairage RGB",
-    description: "Contrôle du PC et du clavier",
-    status: "En préparation",
-    color: "pink",
-  },
-];
-
 type SystemStatus = {
   centrale: string;
   heure_utc: string;
@@ -139,17 +118,6 @@ function App() {
   const [pageActive, setPageActive] = useState("accueil");
   const [couleurRGB, setCouleurRGB] = useState("#845ef7");
   const [luminositeRGB, setLuminositeRGB] = useState(75);
-  const [messageIA, setMessageIA] = useState("");
-  const [messagesIA, setMessagesIA] = useState<
-  { role: "user" | "assistant"; content: string }[]
-  >([
-    {
-      role: "assistant",
-      content:
-        "Bonjour ! Je suis l'assistant de Maison Connectée. Je pourrai bientôt t'aider à comprendre et contrôler ta maison. Que souhaites-tu faire ?",
-    },
-  ]);
-
   const [modeRGBActif, setModeRGBActif] = useState("");
   const [chargementRGB, setChargementRGB] = useState(false);
   const [erreurRGB, setErreurRGB] = useState("");
@@ -1224,6 +1192,17 @@ function App() {
           </a>
 
           <a
+            className={`nav-item ${pageActive === "notifications" ? "active" : ""}`}
+            href="#notifications"
+            onClick={(event) => {
+              event.preventDefault();
+              setPageActive("notifications");
+            }}
+          >
+            ♧ <span>Notifications</span>
+          </a>
+
+          <a
             className={`nav-item ${pageActive === "rgb" ? "active" : ""}`}
             href="#rgb"
             onClick={(event) => {
@@ -1263,8 +1242,10 @@ function App() {
                   ? "Domotique"
                   : pageActive === "assistant"
                     ? "Assistant IA"
-                    : pageActive === "rgb"
-                      ? "Éclairage RGB"
+                    : pageActive === "notifications"
+                      ? "Notifications"
+                      : pageActive === "rgb"
+                        ? "Éclairage RGB"
                       : pageActive === "plan3d"
                         ? "Plan 3D"
                         : "Système"}
@@ -1299,115 +1280,13 @@ function App() {
         </header>
 
         {pageActive === "accueil" && (
-        <>
-        <section className="welcome">
-          <div>
-            <p className="eyebrow">VOTRE MAISON, EN UN SEUL ENDROIT</p>
-            <h2>Bienvenue chez vous.</h2>
-            <p className="welcome-description">
-              Votre centrale se construit progressivement. Tous vos modules
-              seront réunis ici.
-            </p>
-          </div>
-          <div className="welcome-symbol">⌂</div>
-        </section>
-
-        <div className="section-heading">
-          <div>
-            <h2>Mes modules</h2>
-            <p>Les fonctionnalités de votre centrale</p>
-          </div>
-          <span className="module-count">03 MODULES</span>
-        </div>
-
-        <section className="module-grid">
-          {modules.map((module) => (
-            <article className="module-card" key={module.name}>
-              <div className={`module-icon ${module.color}`}>
-                {module.icon}
-              </div>
-              <h3>{module.name}</h3>
-              <p>{module.description}</p>
-              <div className="module-bottom">
-                <span className="status-dot" />
-                <span>{module.status}</span>
-              </div>
-            </article>
-          ))}
-        </section>     
-        </>
-        )}
-
-        {pageActive === "accueil" && (
-          <section className="domotics-section">
-            <div className="section-heading">
-              <div>
-                <h2>Mes appareils</h2>
-                <p>Accès rapide à tes équipements</p>
-              </div>
-              <span className="module-count">
-                {appareils.length} APPAREILS
-              </span>
-            </div>
-
-            <div className="domotics-grid">
-              {appareils.slice(0, 3).map((appareil) => (
-                <article className="domotic-card" key={appareil.id}>
-                  <div className="domotic-card-top">
-                    <div className="domotic-icon">
-                      {appareil.type === "lumiere"
-                        ? "☼"
-                        : appareil.type === "ventilation"
-                          ? "✣"
-                          : appareil.type === "capteur"
-                            ? "◉"
-                            : "ϟ"}
-                    </div>
-
-                    <span
-                      className={
-                        appareil.allume
-                          ? "domotic-status on"
-                          : "domotic-status"
-                      }
-                    >
-                      {appareil.allume ? "Allumé" : "Éteint"}
-                    </span>
-                  </div>
-
-                  <h3>{appareil.nom}</h3>
-                  <p className="domotic-room">{appareil.piece}</p>
-
-                  <div className="domotic-card-bottom">
-                    <span>Alimentation</span>
-
-                    <button
-                      type="button"
-                      className={
-                        appareil.allume
-                          ? "toggle-switch on"
-                          : "toggle-switch"
-                      }
-                      role="switch"
-                      aria-checked={appareil.allume}
-                      aria-label={`Alimentation : ${appareil.nom}`}
-                      disabled={appareilsEnCours.includes(appareil.id)}
-                      onClick={() => void basculerAppareil(appareil)}
-                    >
-                      <span className="toggle-knob" />
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            {appareils.length === 0 && !erreurDomotique && (
-             <p className="metric-detail">
-                Aucun appareil disponible pour le moment.
-                Tu peux en ajouter dans Domotique.
-              </p>
-            )}
-          </section>
+          <Dashboard
+            appareils={appareils}
+            pieces={pieces}
+            automatisations={automatisations}
+            metrics={metrics}
+            onNavigate={setPageActive}
+          />
         )}
 
         {pageActive === "rgb" && (
@@ -1563,99 +1442,9 @@ function App() {
           </section>
         )}
 
-        {pageActive === "assistant" && (
-          <section className="assistant-section">
-            <div className="section-heading">
-              <div>
-                <h2>Assistant Maison</h2>
-                <p>Ton espace de discussion personnel</p>
-              </div>
-              <span className="module-count">ASSISTANT IA</span>
-            </div>
+        {pageActive === "assistant" && <AssistantIA />}
 
-            <div className="assistant-panel">
-              <div className="assistant-header">
-                <div className="assistant-avatar">✦</div>
-                <div>
-                  <h3>Assistant Maison</h3>
-                  <p>Interface de démonstration</p>
-                </div>
-                <span className="assistant-status">
-                  <span className="status-dot" />
-                  Prêt
-                </span>
-              </div>
-
-              <div className="assistant-messages" aria-live="polite">
-                {messagesIA.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`assistant-message ${message.role === "user" ? "user-message" : "bot-message"}`}
-                  >
-                    {message.role === "assistant" && (
-                      <div className="assistant-message-icon">✦</div>
-                    )}
-                    <p>{message.content}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="assistant-suggestions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMessageIA("Quels appareils sont disponibles ?")
-                  }
-                >
-                  Voir mes appareils
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMessageIA("Comment fonctionne ma centrale ?")
-                  }
-                >
-                  Aide sur ma centrale
-                </button>
-              </div>
-
-              <form
-                className="assistant-input-area"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const texte = messageIA.trim();
-                  if (!texte) return;
-
-                  setMessagesIA((anciens) => [
-                    ...anciens,
-                    { role: "user", content: texte },
-                    {
-                      role: "assistant",
-                      content:
-                        "Merci pour ton message ! L'interface fonctionne, mais le modèle d'IA n'est pas encore connecté. Cette réponse est automatique.",
-                    },
-                  ]);
-                  setMessageIA("");
-                }}
-              >
-                <input
-                  type="text"
-                  value={messageIA}
-                  onChange={(event) => setMessageIA(event.target.value)}
-                  placeholder="Écris ton message..."
-                  aria-label="Ton message à l'assistant"
-                />
-                <button type="submit" disabled={!messageIA.trim()}>
-                  Envoyer
-                </button>
-              </form>
-
-              <p className="assistant-disclaimer">
-                Mode démonstration : les réponses ne sont pas générées par une véritable IA.
-              </p>
-            </div>
-          </section>
-        )}
+        {pageActive === "notifications" && <Notifications />}
 
         {pageActive === "systeme" && (
         <>

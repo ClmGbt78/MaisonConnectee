@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.core.security import get_current_user
+from app.core.notifications import creer_notification
 from app.api.domotique import repository as scene_repository, service as service_domotique
 from app.domotique.automations import AutomatisationRepository
 from app.domotique.adapters.ports_serie import lister_ports_disponibles
@@ -54,7 +55,7 @@ def creer_automatisation(
     if piece and not scene_repository.lister(piece=piece, type_appareil="lumiere"):
         raise HTTPException(status_code=422, detail="Aucune lumière n'est enregistrée dans cette pièce")
     try:
-        return automatisations.ajouter({
+        resultat = automatisations.ajouter({
             "nom": nom,
             "heure": item.heure,
             "jours": sorted(item.jours),
@@ -62,6 +63,14 @@ def creer_automatisation(
             "piece": piece,
             "extinction_minutes": item.extinction_minutes,
         })
+        creer_notification(
+            int(utilisateur["id"]),
+            "Automatisation créée",
+            f"L'automatisation « {nom} » a été créée.",
+            "automatisation",
+            "success",
+        )
+        return resultat
     except sqlite3.IntegrityError as erreur:
         raise HTTPException(status_code=409, detail="Impossible de créer cette automatisation") from erreur
 
@@ -75,6 +84,13 @@ def modifier_automatisation(
     resultat = automatisations.modifier_active(automation_id, etat.active)
     if resultat is None:
         raise HTTPException(status_code=404, detail="Automatisation introuvable")
+    creer_notification(
+        int(utilisateur["id"]),
+        "Automatisation modifiée",
+        f"L'automatisation « {resultat['nom']} » est maintenant {'active' if etat.active else 'inactive'}.",
+        "automatisation",
+        "success" if etat.active else "warning",
+    )
     return resultat
 
 
@@ -83,8 +99,17 @@ def supprimer_automatisation(
     automation_id: str,
     utilisateur: dict = Depends(get_current_user),
 ):
+    element = automatisations.obtenir(automation_id)
     if not automatisations.supprimer(automation_id):
         raise HTTPException(status_code=404, detail="Automatisation introuvable")
+    if element:
+        creer_notification(
+            int(utilisateur["id"]),
+            "Automatisation supprimée",
+            f"L'automatisation « {element['nom']} » a été supprimée.",
+            "automatisation",
+            "warning",
+        )
     return Response(status_code=204)
 
 
