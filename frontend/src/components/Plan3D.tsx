@@ -116,6 +116,7 @@ function MurAvecOuvertures({ piece, pieces, mur, ouvertures, materiau, nuit, dep
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   peutModifier: boolean;
+  finition?: FinitionsPiece;
 }) {
   const longueur = mur === "nord" || mur === "sud" ? piece.largeur : piece.profondeur;
   const geometry = useMemo(() => {
@@ -307,8 +308,8 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
-      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
       </mesh>
+      <mesh position={[0, piece.hauteur - 0.025, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[piece.largeur, piece.profondeur]} /><meshStandardMaterial color={finition?.plafond.couleur ?? "#f1f5f9"} transparent opacity={0.12} side={2} depthWrite={false} /></mesh>
       <gridHelper args={[Math.max(piece.largeur, piece.profondeur), Math.max(2, Math.round(Math.max(piece.largeur, piece.profondeur) * 2)), nuit ? "#46566d" : "#9aa9b8", nuit ? "#35465c" : "#c2ccd6"]} position={[0, 0.053, 0]} />
       {(["nord", "sud", "est", "ouest"] as const).map((mur) => {
         const voisin = mursCoincidents(piece, mur, pieces);
