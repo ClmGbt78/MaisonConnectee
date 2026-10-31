@@ -42,7 +42,7 @@ function ObjetMeuble3D({ meuble, piece, peutModifier, deplacer }: { meuble: Meub
   };
   const materiau = (color: string) => <meshStandardMaterial color={color} roughness={0.72} />;
   return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}
-    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z }; event.target.setPointerCapture?.(event.pointerId); } : undefined}
+    onPointerDown={peutModifier ? (event) => { event.stopPropagation(); glisse.current = true; decalage.current = { x: event.point.x - piece.position_x - meuble.position_x, z: event.point.z - piece.position_z - meuble.position_z };  } : undefined}
     onPointerMove={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); positionner(event, false); } } : undefined}
     onPointerUp={peutModifier ? (event) => { if (glisse.current) { event.stopPropagation(); glisse.current = false; positionner(event, true); } } : undefined}
     onPointerCancel={() => { glisse.current = false; }}>
