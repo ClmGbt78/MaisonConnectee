@@ -68,7 +68,8 @@ class AppareilService:
         resultat = self.repository.definir_etat(appareil_id, etat_confirme)
         if resultat is None:
             raise AppareilIntrouvable
-        evolutions.enregistrer(appareil_id, "activation_lumiere" if allume else "extinction_lumiere", 1 if allume else 0, "etat")
+        if appareil["type"] == "lumiere":
+            evolutions.enregistrer(appareil_id, "activation_lumiere" if allume else "extinction_lumiere", 1 if allume else 0, "etat")
         return self.presenter(resultat)
 
     def regler_luminosite(self, appareil_id: str, luminosite: int) -> dict:
