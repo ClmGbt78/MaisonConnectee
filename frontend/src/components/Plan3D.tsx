@@ -17,6 +17,7 @@ type PiecePlan = {
   etage: number;
   ouvertures: Ouverture[];
   meubles: Meuble[];
+  installations: ElementInstallation[];
 };
 
 type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number; sens_ouverture: "gauche" | "droite"; angle_ouverture: number };
@@ -277,7 +278,7 @@ function InstallationPiece3D({ elements, appareils, nuit, commander }: { element
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres }: {
+function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander }: {
   piece: PiecePlan; pieces: PiecePlan[]; transparence: number; nuit: boolean; peutModifier: boolean;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
@@ -290,7 +291,8 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
   return (
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
       {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} piece={piece} peutModifier={peutModifier} deplacer={deplacerMeuble} selectionne={selectionMeuble === meuble.id} selectionner={selectionnerMeuble} pasGrille={pasGrille} />)}
-      <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />\n      <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
+      <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
+      <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
@@ -317,7 +319,15 @@ export default function Plan3D({ role }: { role: string }) {
   const [selection, setSelection] = useState("");
   const [selectionMeuble, setSelectionMeuble] = useState<number | null>(null);
   const [pasGrille, setPasGrille] = useState(0.1);
-  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);\n  const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);\n  const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");\n  const [appareilInstallation, setAppareilInstallation] = useState("");\n  const [circuitInstallation, setCircuitInstallation] = useState("Circuit général");
+  const [lumieres, setLumieres] = useState<LumiereDomotique[]>([]);
+  const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
+  const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
+  const [appareilInstallation, setAppareilInstallation] = useState("");
+  const [circuitInstallation, setCircuitInstallation] = useState("Circuit général");
+  const [appareils, setAppareils] = useState<AppareilDomotique[]>([]);
+  const [typeInstallation, setTypeInstallation] = useState<ElementInstallation["type"]>("prise");
+  const [appareilInstallation, setAppareilInstallation] = useState("");
+  const [circuitInstallation, setCircuitInstallation] = useState("Circuit général");
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
   const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
   const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
@@ -381,7 +391,12 @@ export default function Plan3D({ role }: { role: string }) {
       .finally(() => {
         if (actif) setChargement(false);
       });
-    apiFetch("/api/domotique/appareils")\n      .then(async (response) => response.ok ? await response.json() as AppareilDomotique[] : [])\n      .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere") as LumiereDomotique[]); } })\n      .catch(() => { /* Appareils facultatifs dans la vue 3D. */ });\n    /* anciennes lumières chargées via la liste complète des appareils */\n    apiFetch("/api/domotique/appareils?type=lumiere")
+    apiFetch("/api/domotique/appareils")
+      .then(async (response) => response.ok ? await response.json() as AppareilDomotique[] : [])
+      .then((donnees) => { if (actif) { setAppareils(donnees); setLumieres(donnees.filter((item) => item.type === "lumiere") as LumiereDomotique[]); } })
+      .catch(() => { /* Appareils facultatifs dans la vue 3D. */ });
+    /* anciennes lumières chargées via la liste complète des appareils */
+    apiFetch("/api/domotique/appareils?type=lumiere")
       .then(async (response) => {
         if (!response.ok) return [];
         return await response.json() as LumiereDomotique[];
@@ -393,7 +408,7 @@ export default function Plan3D({ role }: { role: string }) {
 
   const ajouterInstallation = async () => {
     if (!pieceSelectionnee) return;
-    const payload = { type: typeInstallation, position_x: 0, position_z: 0, hauteur: typeInstallation === "prise" ? 0.3 : 1.1, orientation: "nord", circuit: circuitInstallation, appareil_id: typeInstallation === "appareil" ? appareilInstallation || null : null };
+    const payload = { type: typeInstallation, position_x: Math.max(-pieceSelectionnee.largeur / 2 + 0.15, Math.min(pieceSelectionnee.largeur / 2 - 0.15, -pieceSelectionnee.largeur / 2 + 0.3 + (pieceSelectionnee.installations?.length ?? 0) % 5 * 0.45)), position_z: -pieceSelectionnee.profondeur / 2 + 0.12, orientation: "nord", circuit: circuitInstallation, appareil_id: typeInstallation === "appareil" ? appareilInstallation || null : null };
     try {
       const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
@@ -613,6 +628,19 @@ export default function Plan3D({ role }: { role: string }) {
                     <button type="button" onClick={() => void enregistrerOuverture()}>{ouvertureEditionId === null ? "Ajouter l'ouverture" : "Enregistrer l'ouverture"}</button>
                     {ouvertureEditionId !== null && <button type="button" onClick={() => { setOuvertureEditionId(null); setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 }); }}>Annuler</button>}
                   </div>
+                </section>
+                <section className="plan3d-openings">
+                  <h3>Électricité et équipements domotiques</h3>
+                  <div className="plan3d-opening-form">
+                    <label>Élément<select value={typeInstallation} onChange={(event) => setTypeInstallation(event.target.value as ElementInstallation["type"])}><option value="prise">Prise électrique</option><option value="interrupteur">Interrupteur</option><option value="appareil">Appareil domotique</option></select></label>
+                    {typeInstallation === "appareil" && <label>Appareil<select value={appareilInstallation} onChange={(event) => setAppareilInstallation(event.target.value)}><option value="">Choisir un appareil</option>{appareils.filter((item) => item.piece === pieceSelectionnee?.nom).map((item) => <option key={item.id} value={item.id}>{item.nom} ({item.type})</option>)}</select></label>}
+                    <label>Circuit électrique<input value={circuitInstallation} maxLength={80} onChange={(event) => setCircuitInstallation(event.target.value)} /></label>
+                    <button type="button" onClick={() => void ajouterInstallation()}>Ajouter au plan</button>
+                  </div>
+                  {(pieceSelectionnee?.installations ?? []).map((element) => <div className="plan3d-opening-row" key={element.id}>
+                    <span>{element.type === "prise" ? "Prise" : element.type === "interrupteur" ? "Interrupteur" : appareils.find((item) => item.id === element.appareil_id)?.nom ?? "Appareil"} · {element.circuit}</span>
+                    <button type="button" onClick={async () => { const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/installations/${element.id}`, { method: "DELETE" }); if (response.ok) setPieces((old) => old.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, installations: piece.installations.filter((item) => item.id !== element.id) } : piece)); else setErreur("Suppression impossible."); }}>Retirer</button>
+                  </div>)}
                 </section>
                 <section className="plan3d-openings">
                   <h3>Mobilier 3D</h3>
