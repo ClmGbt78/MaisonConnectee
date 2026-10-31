@@ -387,14 +387,14 @@ function InstallationPiece3D({ elements, appareils, nuit, commander }: { element
   })}</group>;
 }
 
-function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition }: {
+function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, validerDeplacement, peutModifier, deplacerMeuble, selectionMeuble, selectionnerMeuble, pasGrille, lumieres, appareils, commander, finition, deplacerPiece }: {
   piece: PiecePlan; pieces: PiecePlan[]; elevation: number; transparence: number; nuit: boolean; peutModifier: boolean; finition?: FinitionsPiece;
   deplacer: (pieceId: string, ouvertureId: number, position: number) => void;
   validerDeplacement: (piece: PiecePlan, ouverture: Ouverture, position: number) => void;
   deplacerMeuble: (meuble: Meuble, x: number, z: number, final: boolean) => void;
-  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;
+  selectionMeuble: number | null; selectionnerMeuble: (id: number) => void; pasGrille: number; lumieres: LumiereDomotique[]; appareils: AppareilDomotique[]; commander: (appareil: AppareilDomotique) => void;\n  deplacerPiece: (piece: PiecePlan, x: number, z: number, final: boolean) => void;
 }) {
-  const opacite = transparence / 100;
+  const opacite = transparence / 100;\n  const glissementPiece = useRef<{ dx: number; dz: number } | null>(null);\n  const commencerDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number }; pointerId: number; target: unknown }) => {\n    if (!peutModifier) return;\n    event.stopPropagation();\n    glissementPiece.current = { dx: event.point.x - piece.position_x, dz: event.point.z - piece.position_z };\n    (event.target as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(event.pointerId);\n  };\n  const poursuivreDeplacementPiece = (event: { stopPropagation: () => void; point: { x: number; z: number } }, final: boolean) => {\n    if (!peutModifier || !glissementPiece.current) return;\n    event.stopPropagation();\n    const x = event.point.x - glissementPiece.current.dx;\n    const z = event.point.z - glissementPiece.current.dz;\n    const xGrille = pasGrille > 0 ? Math.round(x / pasGrille) * pasGrille : x;\n    const zGrille = pasGrille > 0 ? Math.round(z / pasGrille) * pasGrille : z;\n    deplacerPiece(piece, Number(xGrille.toFixed(2)), Number(zGrille.toFixed(2)), final);\n    if (final) glissementPiece.current = null;\n  };
   const rugositeMur = finition?.mur_interieur.materiau === "pierre" || finition?.mur_interieur.materiau === "brique" ? 0.96 : finition?.mur_interieur.materiau === "bois" ? 0.58 : 0.82;
   const materiauMur = { color: nuit ? "#8293aa" : "#e0e7ef", transparent: opacite < 1, opacity: opacite, roughness: rugositeMur, depthWrite: opacite >= 1 };
   const ouvertures = piece.ouvertures ?? [];
@@ -404,12 +404,12 @@ function SolEtMurs({ piece, pieces, elevation, transparence, nuit, deplacer, val
       <LuminairePiece3D lumieres={lumieres.filter((lumiere) => lumiere.piece.trim().toLocaleLowerCase() === piece.nom.trim().toLocaleLowerCase())} nuit={nuit} />
       <InstallationPiece3D elements={piece.installations ?? []} appareils={appareils} nuit={nuit} commander={commander} />
       {piece.forme ? (
-        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }}>
           <shapeGeometry args={[creerShape(piece.forme)]} />
           <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} side={2} />
         </mesh>
       ) : (
-        <mesh position={[0, 0.025, 0]} receiveShadow>
+        <mesh position={[0, 0.025, 0]} receiveShadow onPointerDown={peutModifier ? commencerDeplacementPiece : undefined} onPointerMove={peutModifier ? (event) => poursuivreDeplacementPiece(event, false) : undefined} onPointerUp={peutModifier ? (event) => poursuivreDeplacementPiece(event, true) : undefined} onPointerCancel={() => { glissementPiece.current = null; }}>
           <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
           <meshStandardMaterial color={finition?.sol.couleur ?? piece.couleur ?? "#b8c7d8"} roughness={finition?.sol.materiau === "carrelage" ? 0.28 : finition?.sol.materiau === "parquet" ? 0.62 : finition?.sol.materiau === "moquette" ? 0.98 : 0.85} />
         </mesh>
@@ -785,6 +785,29 @@ Cette opération est irréversible. Continuer ?`)) return;
 
   const supprimerSommet = (index: number) => setBrouillon((ancien) => ancien?.forme && ancien.forme.length > 4 ? { ...ancien, forme: ancien.forme.filter((_, i) => i !== index) } : ancien);
 
+  const deplacerPieceEntiere = useCallback(async (piece: PiecePlan, x: number, z: number, final: boolean) => {
+    setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? { ...ancienne, position_x: x, position_z: z } : ancienne));
+    if (selection === piece.id) setBrouillon((ancien) => ancien ? { ...ancien, position_x: x, position_z: z } : ancien);
+    if (!final) return;
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${piece.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ position_x: x, position_z: z, largeur: piece.largeur, profondeur: piece.profondeur, hauteur: piece.hauteur, etage: piece.etage, forme: piece.forme }),
+      });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Impossible d'enregistrer le déplacement de la pièce.");
+      setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? donnees : ancienne));
+      if (selection === piece.id) setBrouillon(creerBrouillon(donnees));
+      setMessage(`La pièce « ${piece.nom} » a été déplacée et enregistrée.`);
+      setErreur("");
+    } catch (error) {
+      setPieces((anciennes) => anciennes.map((ancienne) => ancienne.id === piece.id ? { ...ancienne, position_x: piece.position_x, position_z: piece.position_z } : ancienne));
+      if (selection === piece.id) setBrouillon((ancien) => ancien ? { ...ancien, position_x: piece.position_x, position_z: piece.position_z } : ancien);
+      setErreur(error instanceof Error ? error.message : "Erreur lors du déplacement de la pièce.");
+    }
+  }, [selection]);
+
   const enregistrer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!pieceSelectionnee || !brouillon) return;
@@ -1111,16 +1134,16 @@ Cette opération est irréversible. Continuer ?`)) return;
               <ambientLight intensity={nuit ? 0.4 : 1.1} />
               <directionalLight position={[8, 14, 8]} intensity={nuit ? 0.22 : 1.65} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.00015} />
               <hemisphereLight args={[nuit ? "#172b50" : "#e7f3ff", nuit ? "#101522" : "#8b7968", nuit ? 0.28 : 0.55]} />
-              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} />)}
+              {piecesVisibles.map((piece) => <SolEtMurs key={piece.id} piece={piece} pieces={piecesVisibles} elevation={elevationsEtages[piece.etage] ?? 0} transparence={transparence} nuit={nuit} deplacer={deplacerOuverture} validerDeplacement={validerDeplacementOuverture} peutModifier={role === "admin"} deplacerMeuble={deplacerMeuble} selectionMeuble={selectionMeuble} selectionnerMeuble={setSelectionMeuble} pasGrille={pasGrille} lumieres={lumieres} appareils={appareils} commander={commanderAppareil} finition={finitions[piece.id]} deplacerPiece={deplacerPieceEntiere} />)}
               <gridHelper args={[Math.max(planLargeur, planProfondeur) * 2, Math.max(20, Math.ceil(Math.max(planLargeur, planProfondeur) * 2)), nuit ? "#40536b" : "#a9b8c6", nuit ? "#24364b" : "#cbd5df"]} position={[0, -0.04, 0]} />
               <OrbitControls makeDefault enableDamping enablePan enableRotate enableZoom minDistance={5} maxDistance={80} maxPolarAngle={Math.PI / 2.03} target={[0, 1, 0]} />
             </Canvas>
-            <div className="plan3d-hint">Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
+            <div className="plan3d-hint">Faire glisser le sol d’une pièce pour déplacer toute la pièce · Faire glisser un meuble pour le déplacer · Curseur sur une ouverture : déplacer le long du mur · Molette : zoomer · Clic droit : déplacer la vue</div>
           </div>
           <Plan3DOptions role={role} onFinitionChange={recevoirFinition} />
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions, leur forme et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les meubles peuvent être sélectionnés et déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions, leur forme et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier peut être déplacé à la souris, redimensionné, tourné et supprimé par un administrateur. Les pièces entières et les meubles peuvent être déplacés avec accrochage à la grille. Les équipements positionnés peuvent être pilotés depuis le plan 3D ; prises et interrupteurs sont des éléments de repérage, les appareils physiques ne sont pas commandés par un matériel réel avec le pilote simulé.</p>
     </div>
   );
 }
