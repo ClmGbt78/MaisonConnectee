@@ -244,3 +244,12 @@ Le plan 3D permet aux administrateurs d'ajouter des prises, interrupteurs et éq
 Les appareils déjà enregistrés dans la domotique peuvent être associés à un repère 3D de leur pièce. Un clic sur un repère lié à un appareil compatible ouvre la commande marche/arrêt existante ; les capteurs restent en lecture seule. Les commandes passent par l'API domotique authentifiée et son adaptateur actuel de simulation : aucun matériel physique n'est piloté par cette évolution.
 
 Le rendu distingue les prises, interrupteurs et appareils, ajoute un quadrillage de finition au sol et conserve les matériaux et meubles 3D existants. Les repères sont éditables par les administrateurs et restent consultables par les autres utilisateurs. Les éléments partageant un même circuit sont reliés par un tracé schématique dans la vue 3D. Ce tracé sert au repérage visuel ; il ne constitue pas un calcul électrique ni un schéma de câblage certifié.
+
+
+### Scénarios domotiques et finitions du plan 3D
+
+Le plan 3D propose également un éditeur de finitions par pièce (murs intérieurs, murs extérieurs, sol et plafond), avec choix d'un matériau de finition et d'une couleur. Le rendu applique les couleurs et des propriétés de surface schématiques (rugosité) ; il ne s'agit pas encore de textures photographiques haute résolution. Les réglages sont persistés dans la table additive `finitions_pieces_3d`.
+
+Les scénarios accessibles depuis le plan 3D peuvent cibler toute la maison ou uniquement une sélection d'appareils. Chaque appareil ciblé reçoit un état marche/arrêt défini par l'utilisateur. Les capteurs restent en lecture seule. Les scénarios sont enregistrés dans `scenarios_plan_3d` et appliqués via le service domotique existant ; les limites du pilote (actuellement simulé) restent inchangées. Les commandes en échec sont retournées individuellement à l'interface.
+
+Les nouvelles tables sont créées avec `CREATE TABLE IF NOT EXISTS`. Aucune table existante ni donnée domotique n'est réinitialisée ou supprimée.
