@@ -351,10 +351,91 @@ export default function Plan3D({ role }: { role: string }) {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
+  const [nomNouvellePiece, setNomNouvellePiece] = useState("");
+  const [descriptionNouvellePiece, setDescriptionNouvellePiece] = useState("");
+  const [couleurNouvellePiece, setCouleurNouvellePiece] = useState("#365B78");
+  const [creationPiece, setCreationPiece] = useState(false);
   const nuit = ambiance === "nuit";
   const recevoirFinition = useCallback((pieceId: string, valeur: FinitionsPiece) => setFinitions((old) => ({ ...old, [pieceId]: valeur })), []);
   const pieceSelectionnee = pieces.find((piece) => piece.id === selection) ?? null;
   const etages = useMemo(() => [...new Set(pieces.map((piece) => piece.etage))].sort((a, b) => a - b), [pieces]);
+
+  const ajouterPiece = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nom = nomNouvellePiece.trim();
+    if (!nom || creationPiece) return;
+    setCreationPiece(true);
+    setErreur("");
+    setMessage("");
+    try {
+      // Fige les positions indicatives déjà affichées avant que l'ajout ne change l'ordre alphabétique.
+      const planAvantResponse = await apiFetch("/api/domotique/plan-3d");
+      if (!planAvantResponse.ok) throw new Error("Impossible de préparer le plan avant l'ajout.");
+      const planAvant = await planAvantResponse.json() as PiecePlan[];
+      for (const piece of planAvant) {
+        const sauvegarde = await apiFetch("/api/domotique/plan-3d/" + piece.id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            position_x: piece.position_x, position_z: piece.position_z,
+            largeur: piece.largeur, profondeur: piece.profondeur,
+            hauteur: piece.hauteur, etage: piece.etage,
+          }),
+        });
+        if (!sauvegarde.ok) throw new Error("Impossible de préserver la position des pièces déjà présentes.");
+      }
+      const response = await apiFetch("/api/domotique/pieces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom,
+          description: descriptionNouvellePiece.trim(),
+          couleur: couleurNouvellePiece,
+        }),
+      });
+      const resultat = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(resultat.detail || "Impossible de créer la pièce.");
+      }
+      const planResponse = await apiFetch("/api/domotique/plan-3d");
+      if (!planResponse.ok) {
+        throw new Error("La pièce est créée, mais son plan 3D n'a pas pu être rechargé. Utilise Actualiser.");
+      }
+      const donnees = await planResponse.json() as PiecePlan[];
+      const nouvellePiece = donnees.find((piece) => piece.id === resultat.id);
+      if (!nouvellePiece) throw new Error("La pièce a été créée, mais elle est absente du plan rechargé.");
+      const bordDroit = donnees
+        .filter((piece) => piece.id !== nouvellePiece.id)
+        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + piece.largeur / 2), 0);
+      const geometrie = {
+        position_x: Number((bordDroit + 2 + nouvellePiece.largeur / 2).toFixed(2)),
+        position_z: 0,
+        largeur: nouvellePiece.largeur,
+        profondeur: nouvellePiece.profondeur,
+        hauteur: nouvellePiece.hauteur,
+        etage: nouvellePiece.etage,
+      };
+      const geometrieResponse = await apiFetch("/api/domotique/plan-3d/" + nouvellePiece.id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geometrie),
+      });
+      if (!geometrieResponse.ok) throw new Error("La pièce est créée, mais sa géométrie initiale n'a pas pu être enregistrée. Sélectionne-la et enregistre ses dimensions.");
+      const pieceEnregistree = await geometrieResponse.json() as PiecePlan;
+      const planFinal = donnees.map((piece) => piece.id === pieceEnregistree.id ? pieceEnregistree : piece);
+      setPieces(planFinal);
+      setSelection(pieceEnregistree.id);
+      setBrouillon(creerBrouillon(pieceEnregistree));
+      setEtageAffiche("tous");
+      setNomNouvellePiece("");
+      setDescriptionNouvellePiece("");
+      setMessage("La pièce « " + nom + " » a été ajoutée au plan 3D. Ajuste ses dimensions et sa position puis enregistre.");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors de la création de la pièce.");
+    } finally {
+      setCreationPiece(false);
+    }
+  };
 
   const chargerLumieres = useCallback(async () => {
     try {
@@ -607,7 +688,23 @@ export default function Plan3D({ role }: { role: string }) {
 
       {chargement && <p className="plan3d-status">Chargement des pièces…</p>}
       {erreur && <p className="plan3d-error" role="alert">{erreur}</p>}
-      {!chargement && !erreur && pieces.length === 0 && <p className="plan3d-status">Crée d'abord tes pièces dans la page Domotique.</p>}
+      {message && <p className="plan3d-success" role="status">{message}</p>}
+      {role === "admin" && (
+        <form className="plan3d-room-form plan3d-create-room-form" onSubmit={(event) => void ajouterPiece(event)}>
+          <h3>Ajouter une pièce</h3>
+          <label>Nom de la pièce
+            <input value={nomNouvellePiece} onChange={(event) => setNomNouvellePiece(event.target.value)} maxLength={60} required placeholder="Ex. Chambre parentale" />
+          </label>
+          <label>Description (facultative)
+            <input value={descriptionNouvellePiece} onChange={(event) => setDescriptionNouvellePiece(event.target.value)} maxLength={240} placeholder="Ex. Chambre à l'étage" />
+          </label>
+          <label>Couleur de la pièce
+            <input type="color" value={couleurNouvellePiece} onChange={(event) => setCouleurNouvellePiece(event.target.value)} />
+          </label>
+          <button type="submit" disabled={creationPiece || !nomNouvellePiece.trim()}>{creationPiece ? "Création…" : "Ajouter au plan 3D"}</button>
+        </form>
+      )}
+      {!chargement && !erreur && pieces.length === 0 && role !== "admin" && <p className="plan3d-status">Aucune pièce n'est encore disponible dans le plan 3D.</p>}
 
       {pieces.length > 0 && (
         <>
@@ -679,7 +776,6 @@ export default function Plan3D({ role }: { role: string }) {
               </form>
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
           </div>
-          {message && <p className="plan3d-success" role="status">{message}</p>}
           {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
           <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
