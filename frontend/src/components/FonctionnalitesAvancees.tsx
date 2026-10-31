@@ -12,7 +12,6 @@ type Regle = { id: string; nom: string; active: boolean; logique: "ET" | "OU"; c
 const jours = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function FonctionnalitesAvancees({ role }: { role: string }) {
-  const [periode, setPeriode] = useState("semaine");
   const [historique, setHistorique] = useState<Mesure[]>([]);
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [pieces, setPieces] = useState<string[]>([]);
