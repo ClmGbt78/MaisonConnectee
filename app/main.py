@@ -26,7 +26,11 @@ moteur_automatisations = MoteurAutomatisations(automatisations, service_domotiqu
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Prépare le stockage configurable sans toucher aux bases existantes.
+    settings.preparer_stockage()
     # Les schémas SQLite sont créés explicitement au démarrage de l'API.
+    from app.core.security import get_jwt_secret
+    get_jwt_secret()
     initialiser_base()
     initialiser_base_systeme()
     initialiser_stockage_domotique()
