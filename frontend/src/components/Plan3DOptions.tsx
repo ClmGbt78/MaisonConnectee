@@ -29,7 +29,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
   const [nom, setNom] = useState("");
   const [description, setDescription] = useState("");
   const [portee, setPortee] = useState<"maison" | "selection">("maison");
-  const [cibles, setCibles] = useState<Cible[]>([]);
+  const [cibles, setCibles] = useState<Cible[]>([]);\n  const [scenarioEditionId, setScenarioEditionId] = useState<number | null>(null);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
 
@@ -112,7 +112,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
     setErreur(data.erreurs?.length ? data.erreurs.map((item: { appareil_id: string; detail: string }) => `${item.appareil_id} : ${item.detail}`).join(" · ") : "");
   };
 
-  const supprimer = async (scenario: Scenario) => {
+  const editerScenario = (scenario: Scenario) => {\n    setScenarioEditionId(scenario.id);\n    setNom(scenario.nom);\n    setDescription(scenario.description);\n    setPortee(scenario.portee);\n    setCibles(scenario.appareils);\n  };\n\n  const supprimer = async (scenario: Scenario) => {
     const response = await apiFetch(`/api/domotique/plan-3d/scenarios/${scenario.id}`, { method: "DELETE" });
     if (response.ok) setScenarios((old) => old.filter((item) => item.id !== scenario.id));
     else setErreur("Suppression du scénario impossible.");
@@ -158,7 +158,7 @@ export default function Plan3DOptions({ role, onFinitionChange }: { role: string
             <option value="true">Allumé</option><option value="false">Éteint</option>
           </select>
         </label>)}</div>
-        <button type="button" disabled={!nom.trim() || (portee === "selection" && !cibles.length)} onClick={() => void enregistrerScenario()}>Créer le scénario</button>
+        <button type="button" disabled={!nom.trim() || (portee === "selection" && !cibles.length)} onClick={() => void enregistrerScenario()}>{scenarioEditionId === null ? "Créer le scénario" : "Enregistrer les modifications"}</button>\n        {scenarioEditionId !== null && <button type="button" onClick={() => { setScenarioEditionId(null); setNom(""); setDescription(""); setCibles([]); }}>Annuler la modification</button>}
       </>}
     </section>
     {erreur && <p className="plan3d-error" role="alert">{erreur}</p>}
