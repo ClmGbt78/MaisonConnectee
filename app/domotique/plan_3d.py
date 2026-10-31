@@ -171,12 +171,12 @@ class Plan3DRepository:
         proche de 5 m. Les formes restent éditables dans l'interface.
         """
         plan = [
-            ("Chambre 1 étage", "Chambre 1 de l'étage", "#91B78C", -4.25, -1.00, 3.00, 3.00),
+            ("Chambre 1 étage", "Chambre 1 de l'étage", "#91B78C", -4.30, -1.00, 3.00, 3.00),
             ("Chambre 2 étage", "Chambre 2 de l'étage", "#91B78C", 0.50, -1.00, 4.50, 3.00),
             ("Chambre 3 étage", "Chambre 3 de l'étage", "#91B78C", 4.25, -1.00, 3.00, 3.00),
-            ("Dressing étage", "Dressing de l'étage", "#B5A6C8", -2.75, 1.75, 2.00, 2.00),
-            ("WC étage", "WC de l'étage", "#76AFC0", -0.90, 1.75, 1.20, 2.00),
-            ("Salle de bains étage", "Salle de bains de l'étage", "#76AFC0", 1.10, 1.75, 2.80, 2.00),
+            ("Dressing étage", "Dressing de l'étage", "#B5A6C8", -2.75, 3.50, 2.00, 2.00),
+            ("WC étage", "WC de l'étage", "#76AFC0", -0.90, 3.50, 1.20, 2.00),
+            ("Salle de bains étage", "Salle de bains de l'étage", "#76AFC0", 1.10, 3.50, 2.80, 2.00),
             ("Palier et cage d'escalier", "Zone du palier et de l'escalier, sans modèle d'escalier 3D", "#8B9BAA", -2.25, -1.00, 1.00, 3.00),
         ]
         existantes = {piece["nom"].casefold(): piece for piece in self.pieces.lister()}
