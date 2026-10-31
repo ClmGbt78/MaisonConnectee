@@ -270,7 +270,7 @@ class Plan3DRepository:
         return next(item for item in self.lister_installations(piece_id) if item["id"] == identifiant)
 
     def modifier_installation(self, piece_id: str, element_id: int, donnees: dict) -> dict | None:
-        piece = self.pieces.obtenir(piece_id)
+        piece = next((item for item in self.lister() if item["id"] == piece_id), None)
         if piece is None:
             return None
         self._valider_installation(piece, donnees)
