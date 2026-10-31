@@ -523,6 +523,33 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
+  const renommerPiece = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!pieceSelectionnee) return;
+    const champ = event.currentTarget.elements.namedItem("nouveau-nom-piece");
+    const nom = champ instanceof HTMLInputElement ? champ.value.trim() : "";
+    if (!nom) { setErreur("Le nom de la pièce est obligatoire."); return; }
+    if (nom.toLocaleLowerCase() === pieceSelectionnee.nom.toLocaleLowerCase()) return;
+    setErreur("");
+    setMessage("");
+    try {
+      const response = await apiFetch(`/api/domotique/pieces/${pieceSelectionnee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom, description: pieceSelectionnee.description ?? "", couleur: pieceSelectionnee.couleur }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Impossible de renommer cette pièce.");
+      const ancienNom = pieceSelectionnee.nom;
+      setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, ...data } : piece));
+      setAppareils((anciens) => anciens.map((appareil) => appareil.piece === ancienNom ? { ...appareil, piece: nom } : appareil));
+      setLumieres((anciennes) => anciennes.map((lumiere) => lumiere.piece === ancienNom ? { ...lumiere, piece: nom } : lumiere));
+      setMessage(`La pièce « ${ancienNom} » a été renommée « ${nom} ».`);
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur lors du renommage.");
+    }
+  };
+
   const supprimerPieceSelectionnee = async () => {
     if (!pieceSelectionnee) return;
     if (!window.confirm(`SUPPRESSION DÉFINITIVE de « ${pieceSelectionnee.nom} ».
@@ -992,6 +1019,13 @@ Cette opération est irréversible. Continuer ?`)) return;
               <form className="plan3d-room-form" onSubmit={enregistrer}>
                 <label>Pièce à modifier<select value={selection} onChange={(event) => { const id = event.target.value; setSelection(id); setBrouillon(creerBrouillon(pieces.find((piece) => piece.id === id))); }}>{pieces.map((piece) => <option key={piece.id} value={piece.id}>{piece.nom}</option>)}</select></label>
                 <button type="button" className="plan3d-danger-button" onClick={() => void supprimerPieceSelectionnee()} disabled={!pieceSelectionnee}>Supprimer la pièce sélectionnée</button>
+                {pieceSelectionnee && <form className="plan3d-opening-form" onSubmit={(event) => void renommerPiece(event)}>
+                  <label>Nouveau nom de la pièce
+                    <input key={pieceSelectionnee.id + ":" + pieceSelectionnee.nom} name="nouveau-nom-piece" defaultValue={pieceSelectionnee.nom} maxLength={60} required />
+                  </label>
+                  <button type="submit">Renommer la pièce</button>
+                </form>}
+
                 {brouillon && <>
                   <label>Position X (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_x} onChange={(event) => modifier("position_x", Number(event.target.value))} /></label>
                   <label>Position Z (m)<input type="number" min="-100" max="100" step="0.1" value={brouillon.position_z} onChange={(event) => modifier("position_z", Number(event.target.value))} /></label>
