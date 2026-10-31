@@ -44,8 +44,8 @@ export default function Dashboard({ appareils, pieces, automatisations, metrics,
 
   useEffect(() => {
     let actif = true;
-    Promise.all([apiFetch("/api/dashboard/preferences"), apiFetch("/api/notifications?limite=5")])
-      .then(async ([preferencesResponse, notificationsResponse]) => {
+    Promise.all([apiFetch("/api/dashboard/preferences"), apiFetch("/api/notifications?limite=5"), apiFetch("/api/notifications?non_lues=true&limite=200")])
+      .then(async ([preferencesResponse, notificationsResponse, nonLuesResponse]) => {
         if (!preferencesResponse.ok) throw new Error("Impossible de charger la disposition du tableau de bord.");
         const preferences = await preferencesResponse.json();
         if (actif && Array.isArray(preferences.widgets)) setWidgets(preferences.widgets);
@@ -53,7 +53,11 @@ export default function Dashboard({ appareils, pieces, automatisations, metrics,
           const elements: Notification[] = await notificationsResponse.json();
           if (actif) {
             setNotifications(elements);
-            setNonLues(elements.filter((item) => !item.lu_le).length);
+          }
+        }
+        if (nonLuesResponse.ok) {
+          const elementsNonLus: Notification[] = await nonLuesResponse.json();
+          if (actif) setNonLues(elementsNonLus.length);
           }
         }
       })
