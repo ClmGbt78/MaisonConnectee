@@ -89,15 +89,23 @@ class GestionnaireSauvegardes:
             manifeste = json.loads(manifeste_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as erreur:
             raise ValueError("Sauvegarde introuvable ou manifeste illisible.") from erreur
+        if not isinstance(manifeste, dict):
+            raise ValueError("Le manifeste de cette sauvegarde est invalide.")
+        bases = manifeste.get("bases")
+        tailles = manifeste.get("tailles_octets")
         if (
             manifeste.get("version") != 1
             or manifeste.get("identifiant") != identifiant
-            or set(manifeste.get("bases", [])) != set(NOMS_BASES)
+            or not isinstance(bases, list)
+            or set(bases) != set(NOMS_BASES)
+            or not isinstance(tailles, dict)
+            or set(tailles) != set(NOMS_BASES)
+            or any(not isinstance(tailles[nom], int) or tailles[nom] < 0 for nom in NOMS_BASES)
         ):
             raise ValueError("Le manifeste de cette sauvegarde est invalide.")
         for nom in NOMS_BASES:
             fichier = dossier / nom
-            if not fichier.is_file() or fichier.parent.resolve() != dossier.resolve():
+            if not fichier.is_file() or fichier.resolve().parent != dossier.resolve():
                 raise ValueError(f"Fichier de sauvegarde manquant : {nom}")
         return dossier, manifeste
 
