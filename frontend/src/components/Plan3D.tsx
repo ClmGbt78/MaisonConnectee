@@ -930,16 +930,14 @@ Cette opération est irréversible. Continuer ?`)) return;
   const piecesPourAffichage = pieces.map((piece) => piece.id === selection && brouillon ? { ...piece, ...brouillon } : piece);
   // Chaque niveau démarre au-dessus du plafond le plus haut du niveau précédent.
   // Cela évite le décalage fixe de 3,25 m et tient compte des hauteurs réellement configurées.
-  const elevationsEtages = piecesPourAffichage.reduce<Record<number, number>>((elevations, piece) => {
-    const niveaux = [...new Set(piecesPourAffichage.map((item) => item.etage))].sort((a, b) => a - b);
-    let elevation = 0;
-    for (const niveau of niveaux) {
-      elevations[niveau] = elevation;
-      const hauteurNiveau = Math.max(2, ...piecesPourAffichage.filter((item) => item.etage === niveau).map((item) => item.hauteur));
-      elevation += hauteurNiveau + 0.18;
-    }
-    return elevations;
-  }, {});
+  const elevationsEtages: Record<number, number> = {};
+  const niveaux = [...new Set(piecesPourAffichage.map((piece) => piece.etage))].sort((a, b) => a - b);
+  let elevationSuivante = 0;
+  for (const niveau of niveaux) {
+    elevationsEtages[niveau] = elevationSuivante;
+    const hauteurNiveau = Math.max(2, ...piecesPourAffichage.filter((piece) => piece.etage === niveau).map((piece) => piece.hauteur));
+    elevationSuivante += hauteurNiveau + 0.18;
+  }
   const piecesVisibles = etageAffiche === "tous" ? piecesPourAffichage : piecesPourAffichage.filter((piece) => piece.etage === Number(etageAffiche));
   const planLargeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_x) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.x))) : piece.largeur / 2) + 3), 16);
   const planProfondeur = Math.max(16, ...piecesVisibles.map((piece) => Math.abs(piece.position_z) + (piece.forme?.length ? Math.max(...piece.forme.map((point) => Math.abs(point.z))) : piece.profondeur / 2) + 3), 16);
