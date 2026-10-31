@@ -5,13 +5,12 @@ import psutil
 from fastapi import APIRouter, Depends
 from app.core.security import get_current_user
 import sqlite3
-from pathlib import Path
+
+from app.core.config import get_settings
 
 router = APIRouter()
 
-# Base de données située à la racine du projet
-BASE_DIR = Path(__file__).resolve().parents[2]
-DB_PATH = BASE_DIR / "systeme_historique.db"
+DB_PATH = get_settings().domotique_db_file
 
 def initialiser_base():
     with sqlite3.connect(DB_PATH) as connexion:
@@ -50,7 +49,7 @@ def etat_systeme(utilisateur_connecte: dict = Depends(get_current_user)):
 @router.get("/systeme/indicateurs")
 def indicateurs_systeme(utilisateur_connecte: dict = Depends(get_current_user)):
     memoire = psutil.virtual_memory()
-    disque = shutil.disk_usage("C:\\")
+    disque = shutil.disk_usage(get_settings().data_dir)
 
     cpu_pct = psutil.cpu_percent(interval=0.5)
     ram_pct = memoire.percent
