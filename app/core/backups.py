@@ -3,6 +3,7 @@ import logging
 import re
 import shutil
 import sqlite3
+import threading
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,7 @@ class GestionnaireSauvegardes:
         self.chemins_bases = {nom: Path(chemin) for nom, chemin in chemins_bases.items()}
         self.dossier_sauvegardes = Path(dossier_sauvegardes)
         self.retention = retention
+        self._verrou = threading.RLock()
 
     @staticmethod
     def _copier_base(source: Path, destination: Path) -> None:
@@ -42,6 +44,10 @@ class GestionnaireSauvegardes:
                     raise ValueError(f"La base SQLite {source.name} est invalide.")
 
     def creer_sauvegarde(self, appliquer_retention: bool = True) -> dict:
+        with self._verrou:
+            return self._creer_sauvegarde(appliquer_retention)
+
+    def _creer_sauvegarde(self, appliquer_retention: bool) -> dict:
         self.dossier_sauvegardes.mkdir(parents=True, exist_ok=True)
         identifiant = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         dossier_temporaire = self.dossier_sauvegardes / f".tmp-{identifiant}"
@@ -126,6 +132,10 @@ class GestionnaireSauvegardes:
             shutil.rmtree(dossier)
 
     def restaurer(self, identifiant: str) -> dict:
+        with self._verrou:
+            return self._restaurer(identifiant)
+
+    def _restaurer(self, identifiant: str) -> dict:
         dossier_source, _ = self._lire_manifeste(identifiant)
         # Toujours conserver l'état courant avant d'écraser une base.
         sauvegarde_securite = self.creer_sauvegarde(appliquer_retention=False)
