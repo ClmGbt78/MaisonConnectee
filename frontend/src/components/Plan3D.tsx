@@ -501,9 +501,41 @@ export default function Plan3D({ role }: { role: string }) {
     }
   };
 
+  const importerPlanEtage = async () => {
+    if (!window.confirm("Créer l'étage à partir du croquis ? Les pièces portant déjà ces noms verront leur géométrie d'étage remplacée. Les autres pièces seront conservées.")) return;
+    setErreur("");
+    setMessage("");
+    setEnregistrement(true);
+    try {
+      const response = await apiFetch("/api/domotique/plan-3d/importer-etage", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Import de l'étage impossible.");
+      setPieces(data as PiecePlan[]);
+      const premiere = (data as PiecePlan[]).find((piece) => piece.nom === "Chambre 1 étage") ?? (data as PiecePlan[])[0];
+      setSelection(premiere?.id ?? "");
+      setBrouillon(creerBrouillon(premiere));
+      setEtageAffiche("1");
+      setMessage("L'étage a été créé. Les dimensions et les cloisons sont ajustables dans l'éditeur.");
+    } catch (error) {
+      setErreur(error instanceof Error ? error.message : "Erreur pendant l'import de l'étage.");
+    } finally {
+      setEnregistrement(false);
+    }
+  };
+
   const supprimerPieceSelectionnee = async () => {
     if (!pieceSelectionnee) return;
-    if (!window.confirm(`Supprimer la pièce « ${pieceSelectionnee.nom} » ? Les données de géométrie, ouvertures et mobilier 3D seront supprimées. Les pièces contenant des appareils ou utilisées par des automatisations seront protégées.`)) return;
+    if (!window.confirm(`SUPPRESSION DÉFINITIVE de « ${pieceSelectionnee.nom} ».
+
+Seront supprimés :
+• la pièce et sa géométrie 3D ;
+• tous ses meubles, ouvertures et installations ;
+• tous les appareils domotiques de cette pièce ;
+• les mesures et configurations de ces appareils ;
+• les automatisations horaires ou conditionnelles associées à la pièce ou à l'un de ses appareils ;
+• les extinctions différées de cette pièce.
+
+Cette opération est irréversible. Continuer ?`)) return;
     try {
       const response = await apiFetch(`/api/domotique/pieces/${pieceSelectionnee.id}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
@@ -927,6 +959,7 @@ export default function Plan3D({ role }: { role: string }) {
         <form className="plan3d-room-form plan3d-create-room-form" onSubmit={(event) => void ajouterPiece(event)}>
           <h3>Ajouter une pièce</h3>
           <button type="button" onClick={() => void importerPlanRezDeChaussee()} disabled={enregistrement}>Importer la reconstruction du rez-de-chaussée</button>
+          <button type="button" onClick={() => void importerPlanEtage()} disabled={enregistrement}>Créer le deuxième étage à partir du croquis</button>
           <p>Crée une première disposition approximative d'après le plan fourni (11,72 × 9,00 m). Les pièces existantes non correspondantes sont conservées ; les géométries portant les mêmes noms sont remplacées.</p>
           <label>Nom de la pièce
             <input value={nomNouvellePiece} onChange={(event) => setNomNouvellePiece(event.target.value)} maxLength={60} required placeholder="Ex. Chambre parentale" />
