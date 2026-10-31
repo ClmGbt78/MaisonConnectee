@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Html, Line, OrbitControls, RoundedBox } from "@react-three/drei";
-import { Shape, Path, ShapeGeometry, ExtrudeGeometry } from "three";
+import { Shape, Path, ExtrudeGeometry } from "three";
 import { apiFetch } from "../api";
 import Plan3DOptions from "./Plan3DOptions";
 import "./Plan3D.css";
