@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from app.domotique.adapters.capteurs import AdaptateurCapteur, AdaptateurCapteurSimulation
 from app.domotique.repository import DB_PATH
-from app.domotique.evolutions import evolutions
+from app.domotique.evolutions import EvolutionRepository
 
 
 class AutomatisationRepository:
@@ -232,6 +232,8 @@ class MoteurAutomatisations:
     def __init__(self, repository: AutomatisationRepository, service_domotique, adaptateur_capteurs: AdaptateurCapteur | None = None):
         self.repository = repository
         self.service_domotique = service_domotique
+        self.evolutions = EvolutionRepository(repository.db_path)
+        self.evolutions.initialiser()
         # Le mode simulation reste le comportement par défaut ; un pilote physique
         # pourra être injecté sans modifier le moteur d'automatisations.
         self.adaptateur_capteurs = adaptateur_capteurs or AdaptateurCapteurSimulation(repository)
@@ -277,7 +279,7 @@ class MoteurAutomatisations:
                 self.service_domotique.commander(appareil["id"], False)
             self.repository.marquer_extinction(extinction["id"])
 
-        self.executer_conditions(maintenant)\n        evolutions.executer_regles(self.service_domotique, maintenant)
+        self.executer_conditions(maintenant)\n        self.evolutions.executer_regles(self.service_domotique, maintenant)
 
     
     def executer_conditions(self, maintenant: datetime | None = None) -> None:
