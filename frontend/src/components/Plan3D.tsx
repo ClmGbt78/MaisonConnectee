@@ -16,11 +16,33 @@ type PiecePlan = {
   hauteur: number;
   etage: number;
   ouvertures: Ouverture[];
+  meubles: Meuble[];
 };
 
 type Ouverture = { id: number; type: "porte" | "fenetre"; mur: "nord" | "sud" | "est" | "ouest"; position: number; largeur: number; hauteur: number; hauteur_appui: number; sens_ouverture: "gauche" | "droite"; angle_ouverture: number };
+type Meuble = { id: number; type: "canape" | "fauteuil" | "table" | "lit" | "armoire" | "cuisine"; position_x: number; position_z: number; largeur: number; profondeur: number; hauteur: number; rotation: number };
 type BrouillonOuverture = Omit<Ouverture, "id">;
 type Brouillon = Pick<PiecePlan, "position_x" | "position_z" | "largeur" | "profondeur" | "hauteur" | "etage">;
+
+function ObjetMeuble3D({ meuble }: { meuble: Meuble }) {
+  const couleurs: Record<Meuble["type"], string> = {
+    canape: "#557b91", fauteuil: "#638b9d", table: "#9b704e",
+    lit: "#b7c7d8", armoire: "#8b7059", cuisine: "#aeb8c2",
+  };
+  const couleur = couleurs[meuble.type];
+  return <group position={[meuble.position_x, 0.06, meuble.position_z]} rotation={[0, meuble.rotation * Math.PI / 180, 0]}>
+    <mesh position={[0, meuble.hauteur / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[meuble.largeur, meuble.hauteur, meuble.profondeur]} />
+      <meshStandardMaterial color={couleur} roughness={0.78} />
+    </mesh>
+    {meuble.type === "canape" && <>
+      <mesh position={[0, meuble.hauteur * 0.78, -meuble.profondeur * 0.39]} castShadow><boxGeometry args={[meuble.largeur * 0.94, meuble.hauteur * 0.38, meuble.profondeur * 0.18]} /><meshStandardMaterial color="#405f73" /></mesh>
+      {[-1, 1].map((cote) => <mesh key={cote} position={[cote * meuble.largeur * 0.43, meuble.hauteur * 0.57, 0]}><boxGeometry args={[meuble.largeur * 0.12, meuble.hauteur * 0.45, meuble.profondeur]} /><meshStandardMaterial color="#405f73" /></mesh>)}
+    </>}
+    {meuble.type === "lit" && <mesh position={[0, meuble.hauteur * 0.9, -meuble.profondeur * 0.42]}><boxGeometry args={[meuble.largeur, meuble.hauteur * 0.2, 0.1]} /><meshStandardMaterial color="#8b7059" /></mesh>}
+    {meuble.type === "table" && [-1, 1].flatMap((x) => [-1, 1].map((z) => <mesh key={x + ":" + z} position={[x * meuble.largeur * 0.42, meuble.hauteur * 0.25, z * meuble.profondeur * 0.38]}><boxGeometry args={[0.07, meuble.hauteur * 0.5, 0.07]} /><meshStandardMaterial color="#765338" /></mesh>))}
+  </group>;
+}
 
 function creerBrouillon(piece: PiecePlan | undefined): Brouillon | null {
   if (!piece) return null;
@@ -193,6 +215,7 @@ function SolEtMurs({ piece, pieces, transparence, nuit, deplacer, validerDeplace
   const ouvertures = piece.ouvertures ?? [];
   return (
     <group position={[piece.position_x, piece.etage * 3.25, piece.position_z]}>
+      {(piece.meubles ?? []).map((meuble) => <ObjetMeuble3D key={meuble.id} meuble={meuble} />)}
       <mesh position={[0, 0.025, 0]} receiveShadow>
         <boxGeometry args={[piece.largeur, 0.05, piece.profondeur]} />
         <meshStandardMaterial color={piece.couleur || "#b8c7d8"} roughness={0.9} />
@@ -220,6 +243,7 @@ export default function Plan3D({ role }: { role: string }) {
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
   const [ouvertureBrouillon, setOuvertureBrouillon] = useState<BrouillonOuverture>({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 });
   const [ouvertureEditionId, setOuvertureEditionId] = useState<number | null>(null);
+  const [typeMeuble, setTypeMeuble] = useState<Meuble["type"]>("canape");
   const [etageAffiche, setEtageAffiche] = useState("0");
   const [transparence, setTransparence] = useState(82);
   const [ambiance, setAmbiance] = useState<"jour" | "nuit">("jour");
@@ -332,6 +356,48 @@ export default function Plan3D({ role }: { role: string }) {
     setMessage("Ouverture supprimée.");
   };
 
+  const ajouterMeuble = async () => {
+    if (!pieceSelectionnee) return;
+    const presets: Record<Meuble["type"], Omit<Meuble, "id">> = {
+      canape: { type: "canape", position_x: 0, position_z: 0, largeur: 2.1, profondeur: 0.9, hauteur: 0.85, rotation: 0 },
+      fauteuil: { type: "fauteuil", position_x: 0, position_z: 0, largeur: 0.9, profondeur: 0.9, hauteur: 0.85, rotation: 0 },
+      table: { type: "table", position_x: 0, position_z: 0, largeur: 1.2, profondeur: 0.8, hauteur: 0.75, rotation: 0 },
+      lit: { type: "lit", position_x: 0, position_z: 0, largeur: 1.6, profondeur: 2, hauteur: 0.5, rotation: 0 },
+      armoire: { type: "armoire", position_x: 0, position_z: 0, largeur: 1.2, profondeur: 0.6, hauteur: 2.1, rotation: 0 },
+      cuisine: { type: "cuisine", position_x: 0, position_z: 0, largeur: 1.2, profondeur: 0.65, hauteur: 0.9, rotation: 0 },
+    };
+    const meuble = presets[typeMeuble];
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/meubles`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(meuble) });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Impossible d'ajouter ce meuble.");
+      setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, meubles: [...(piece.meubles ?? []), donnees] } : piece));
+      setMessage("Meuble ajouté.");
+      setErreur("");
+    } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur lors de l'ajout du meuble."); }
+  };
+
+  const modifierMeuble = async (meuble: Meuble, changements: Partial<Meuble>) => {
+    if (!pieceSelectionnee) return;
+    const miseAJour = { ...meuble, ...changements };
+    setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, meubles: (piece.meubles ?? []).map((item) => item.id === meuble.id ? miseAJour : item) } : piece));
+    try {
+      const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/meubles/${meuble.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(miseAJour) });
+      const donnees = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(donnees.detail || "Modification du meuble impossible.");
+      setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, meubles: (piece.meubles ?? []).map((item) => item.id === meuble.id ? donnees : item) } : piece));
+      setErreur("");
+    } catch (error) { setErreur(error instanceof Error ? error.message : "Erreur de modification."); void charger(); }
+  };
+
+  const supprimerMeuble = async (meuble: Meuble) => {
+    if (!pieceSelectionnee) return;
+    const response = await apiFetch(`/api/domotique/plan-3d/${pieceSelectionnee.id}/meubles/${meuble.id}`, { method: "DELETE" });
+    if (!response.ok) { setErreur("Impossible de supprimer ce meuble."); return; }
+    setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceSelectionnee.id ? { ...piece, meubles: (piece.meubles ?? []).filter((item) => item.id !== meuble.id) } : piece));
+    setMessage("Meuble supprimé.");
+  };
+
   const deplacerOuverture = (pieceId: string, ouvertureId: number, position: number) => {
     setPieces((anciennes) => anciennes.map((piece) => piece.id === pieceId
       ? { ...piece, ouvertures: (piece.ouvertures ?? []).map((ouverture) => ouverture.id === ouvertureId ? { ...ouverture, position } : ouverture) }
@@ -420,6 +486,20 @@ export default function Plan3D({ role }: { role: string }) {
                     {ouvertureEditionId !== null && <button type="button" onClick={() => { setOuvertureEditionId(null); setOuvertureBrouillon({ type: "porte", mur: "nord", position: 0, largeur: 0.9, hauteur: 2.1, hauteur_appui: 0, sens_ouverture: "gauche", angle_ouverture: 90 }); }}>Annuler</button>}
                   </div>
                 </section>
+                <section className="plan3d-openings">
+                  <h3>Mobilier 3D</h3>
+                  <div className="plan3d-opening-form">
+                    <label>Type de meuble<select value={typeMeuble} onChange={(event) => setTypeMeuble(event.target.value as Meuble["type"])}><option value="canape">Canapé</option><option value="fauteuil">Fauteuil</option><option value="table">Table</option><option value="lit">Lit</option><option value="armoire">Armoire</option><option value="cuisine">Meuble de cuisine</option></select></label>
+                    <button type="button" onClick={() => void ajouterMeuble()}>Ajouter le meuble</button>
+                  </div>
+                  {(pieceSelectionnee?.meubles ?? []).map((meuble) => <div className="plan3d-opening-row" key={meuble.id}>
+                    <span>{({ canape: "Canapé", fauteuil: "Fauteuil", table: "Table", lit: "Lit", armoire: "Armoire", cuisine: "Meuble de cuisine" } as Record<Meuble["type"], string>)[meuble.type]}</span>
+                    <label className="plan3d-furniture-control">X <input type="number" step="0.1" value={meuble.position_x} onChange={(event) => void modifierMeuble(meuble, { position_x: Number(event.target.value) })} /></label>
+                    <label className="plan3d-furniture-control">Z <input type="number" step="0.1" value={meuble.position_z} onChange={(event) => void modifierMeuble(meuble, { position_z: Number(event.target.value) })} /></label>
+                    <button type="button" onClick={() => void modifierMeuble(meuble, { rotation: (meuble.rotation + 90) % 360 })}>Tourner 90°</button>
+                    <button type="button" onClick={() => void supprimerMeuble(meuble)}>Supprimer</button>
+                  </div>)}
+                </section>
               </form>
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
           </div>
@@ -437,7 +517,7 @@ export default function Plan3D({ role }: { role: string }) {
           </div>
         </>
       )}
-      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques ; les dimensions et positions doivent être ajustées pour reproduire le logement.</p>
+      <p className="plan3d-disclaimer">Les pièces sont affichées avec leurs dimensions et leur étage enregistrés. Les positions proposées au départ sont provisoires : ajuste-les pour reproduire ton logement. Les portes et fenêtres sont représentées avec leurs cadres, vantaux et vitrages schématiques. Le mobilier est schématique et peut être ajouté, déplacé, tourné et supprimé par un administrateur.</p>
     </div>
   );
 }
