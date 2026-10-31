@@ -9,7 +9,7 @@ from app.api.plan_3d import router as plan_3d_router
 from app.api.plan_3d_config import router as plan_3d_config_router
 from app.api.meubles_3d import router as meubles_3d_router
 from app.api.comptes import router as comptes_router
-from app.api.automatisations import router as automatisations_router, automatisations
+from app.api.automatisations import router as automatisations_router, automatisations\nfrom app.api.evolutions import router as evolutions_router
 from app.domotique.automations import MoteurAutomatisations
 from app.api.domotique import service as service_domotique
 
@@ -48,7 +48,7 @@ app.include_router(plan_3d_config_router, prefix="/api")
 app.include_router(meubles_3d_router, prefix="/api")
 app.include_router(rgb_router, prefix="/api")
 app.include_router(comptes_router, prefix="/api")
-app.include_router(automatisations_router, prefix="/api")
+app.include_router(automatisations_router, prefix="/api")\napp.include_router(evolutions_router, prefix="/api")
 
 moteur_automatisations = MoteurAutomatisations(automatisations, service_domotique)
 
