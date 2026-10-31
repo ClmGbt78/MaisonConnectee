@@ -70,3 +70,29 @@ def test_nom_de_piece_est_unique_sans_tenir_compte_de_la_casse(pieces):
     pieces.ajouter("Buanderie", "", "#365B78")
     with pytest.raises(sqlite3.IntegrityError):
         pieces.ajouter("buanderie", "", "#365B78")
+
+def test_suppression_piece_nettoie_les_donnees_du_plan_3d(pieces):
+    from app.domotique.plan_3d import Plan3DRepository
+
+    piece = pieces.ajouter("Atelier 3D", "", "#365B78")
+    plan = Plan3DRepository(pieces.db_path)
+    plan.initialiser()
+    plan.enregistrer(piece["id"], {
+        "position_x": 0, "position_z": 0, "largeur": 4,
+        "profondeur": 3, "hauteur": 2.7, "etage": 0,
+    })
+    with sqlite3.connect(pieces.db_path) as connexion:
+        connexion.execute(
+            """INSERT INTO meubles_pieces_3d
+               (piece_id, type, largeur, profondeur, hauteur)
+               VALUES (?, 'canape', 2, 1, 1)""",
+            (piece["id"],),
+        )
+    assert pieces.supprimer(piece["id"]) == "Atelier 3D"
+    with sqlite3.connect(pieces.db_path) as connexion:
+        assert connexion.execute(
+            "SELECT COUNT(*) FROM geometrie_pieces_3d WHERE piece_id = ?", (piece["id"],)
+        ).fetchone()[0] == 0
+        assert connexion.execute(
+            "SELECT COUNT(*) FROM meubles_pieces_3d WHERE piece_id = ?", (piece["id"],)
+        ).fetchone()[0] == 0
