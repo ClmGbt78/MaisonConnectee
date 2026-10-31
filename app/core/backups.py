@@ -96,7 +96,9 @@ class GestionnaireSauvegardes:
         if (
             manifeste.get("version") != 1
             or manifeste.get("identifiant") != identifiant
+            or not isinstance(manifeste.get("cree_le"), str)
             or not isinstance(bases, list)
+            or any(not isinstance(nom, str) for nom in bases)
             or set(bases) != set(NOMS_BASES)
             or not isinstance(tailles, dict)
             or set(tailles) != set(NOMS_BASES)
