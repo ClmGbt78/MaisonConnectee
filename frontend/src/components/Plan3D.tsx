@@ -368,6 +368,22 @@ export default function Plan3D({ role }: { role: string }) {
     setErreur("");
     setMessage("");
     try {
+      // Fige les positions indicatives déjà affichées avant que l'ajout ne change l'ordre alphabétique.
+      const planAvantResponse = await apiFetch("/api/domotique/plan-3d");
+      if (!planAvantResponse.ok) throw new Error("Impossible de préparer le plan avant l'ajout.");
+      const planAvant = await planAvantResponse.json() as PiecePlan[];
+      for (const piece of planAvant) {
+        const sauvegarde = await apiFetch("/api/domotique/plan-3d/" + piece.id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            position_x: piece.position_x, position_z: piece.position_z,
+            largeur: piece.largeur, profondeur: piece.profondeur,
+            hauteur: piece.hauteur, etage: piece.etage,
+          }),
+        });
+        if (!sauvegarde.ok) throw new Error("Impossible de préserver la position des pièces déjà présentes.");
+      }
       const response = await apiFetch("/api/domotique/pieces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,13 +402,31 @@ export default function Plan3D({ role }: { role: string }) {
         throw new Error("La pièce est créée, mais son plan 3D n'a pas pu être rechargé. Utilise Actualiser.");
       }
       const donnees = await planResponse.json() as PiecePlan[];
-      setPieces(donnees);
       const nouvellePiece = donnees.find((piece) => piece.id === resultat.id);
-      if (nouvellePiece) {
-        setSelection(nouvellePiece.id);
-        setBrouillon(creerBrouillon(nouvellePiece));
-        setEtageAffiche("tous");
-      }
+      if (!nouvellePiece) throw new Error("La pièce a été créée, mais elle est absente du plan rechargé.");
+      const bordDroit = donnees
+        .filter((piece) => piece.id !== nouvellePiece.id)
+        .reduce((maximum, piece) => Math.max(maximum, piece.position_x + piece.largeur / 2), 0);
+      const geometrie = {
+        position_x: Number((bordDroit + 2 + nouvellePiece.largeur / 2).toFixed(2)),
+        position_z: 0,
+        largeur: nouvellePiece.largeur,
+        profondeur: nouvellePiece.profondeur,
+        hauteur: nouvellePiece.hauteur,
+        etage: nouvellePiece.etage,
+      };
+      const geometrieResponse = await apiFetch("/api/domotique/plan-3d/" + nouvellePiece.id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geometrie),
+      });
+      if (!geometrieResponse.ok) throw new Error("La pièce est créée, mais sa géométrie initiale n'a pas pu être enregistrée. Sélectionne-la et enregistre ses dimensions.");
+      const pieceEnregistree = await geometrieResponse.json() as PiecePlan;
+      const planFinal = donnees.map((piece) => piece.id === pieceEnregistree.id ? pieceEnregistree : piece);
+      setPieces(planFinal);
+      setSelection(pieceEnregistree.id);
+      setBrouillon(creerBrouillon(pieceEnregistree));
+      setEtageAffiche("tous");
       setNomNouvellePiece("");
       setDescriptionNouvellePiece("");
       setMessage("La pièce « " + nom + " » a été ajoutée au plan 3D. Ajuste ses dimensions et sa position puis enregistre.");
@@ -742,7 +776,6 @@ export default function Plan3D({ role }: { role: string }) {
               </form>
             ) : <p className="plan3d-status">Mode consultation : seul un administrateur peut modifier la géométrie.</p>}
           </div>
-          {message && <p className="plan3d-success" role="status">{message}</p>}
           {role === "admin" && <div className="plan3d-selection-bar">{selectionMeuble !== null ? <>Meuble sélectionné · glisse-le pour le déplacer · grille {pasGrille ? `${pasGrille * 100} cm` : "désactivée"}<button type="button" onClick={() => setSelectionMeuble(null)}>Désélectionner</button></> : "Clique sur un meuble pour le sélectionner, puis fais-le glisser."}</div>}
           <div className="plan3d-light-status">{lumieres.length} lumière(s) domotique(s) détectée(s) · {lumieres.filter((lumiere) => lumiere.allume).length} allumée(s). Les sources actives éclairent les pièces correspondantes.</div>
           <div className="plan3d-canvas" role="img" aria-label="Plan 3D composé des pièces enregistrées">
