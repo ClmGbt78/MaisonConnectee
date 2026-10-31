@@ -259,3 +259,13 @@ def test_migration_catalogue_meubles_conserve_les_meubles_existants(tmp_path):
         "rotation": 0,
     })
     assert television["type"] == "television"
+
+def test_importer_rez_de_chaussee_cree_les_pieces_et_est_rejouable(plan):
+    pieces = plan.importer_plan_rez_de_chaussee()
+    par_nom = {piece["nom"]: piece for piece in pieces}
+    assert {"Cage d'escalier", "Chambre 1-2", "Salon", "Séjour", "Garage", "Cuisine"} <= set(par_nom)
+    assert par_nom["Cage d'escalier"]["largeur"] == 2.8
+    assert par_nom["Cage d'escalier"]["profondeur"] == 4.2
+    assert par_nom["Chambre 1-2"]["largeur"] == 5.8
+    assert par_nom["Chambre 1-2"]["etage"] == 0
+    assert len(plan.importer_plan_rez_de_chaussee()) == len(pieces)
