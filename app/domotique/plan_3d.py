@@ -163,6 +163,40 @@ class Plan3DRepository:
                 raise ValueError(f"Impossible d'enregistrer la geometrie de {nom}.")
         return self.lister()
 
+    def importer_plan_etage(self) -> list[dict]:
+        """Crée une première implantation approximative de l'étage d'après le croquis.
+
+        Le croquis indique environ 11,5 m de largeur, avec trois chambres
+        (3 m, 4,5 m et 3 m), un escalier d'environ 1 m et une profondeur
+        proche de 5 m. Les formes restent éditables dans l'interface.
+        """
+        plan = [
+            ("Chambre 1 étage", "Chambre 1 de l'étage", "#91B78C", -4.25, -1.00, 3.00, 3.00),
+            ("Chambre 2 étage", "Chambre 2 de l'étage", "#91B78C", 0.50, -1.00, 4.50, 3.00),
+            ("Chambre 3 étage", "Chambre 3 de l'étage", "#91B78C", 4.25, -1.00, 3.00, 3.00),
+            ("Dressing étage", "Dressing de l'étage", "#B5A6C8", -2.75, 1.75, 2.00, 2.00),
+            ("WC étage", "WC de l'étage", "#76AFC0", -0.90, 1.75, 1.20, 2.00),
+            ("Salle de bains étage", "Salle de bains de l'étage", "#76AFC0", 1.10, 1.75, 2.80, 2.00),
+            ("Palier et cage d'escalier", "Zone du palier et de l'escalier, sans modèle d'escalier 3D", "#8B9BAA", -2.25, -1.00, 1.00, 3.00),
+        ]
+        existantes = {piece["nom"].casefold(): piece for piece in self.pieces.lister()}
+        for nom, description, couleur, x, z, largeur, profondeur in plan:
+            piece = existantes.get(nom.casefold())
+            if piece is None:
+                try:
+                    piece = self.pieces.ajouter(nom, description, couleur)
+                except sqlite3.IntegrityError:
+                    piece = next((p for p in self.pieces.lister() if p["nom"].casefold() == nom.casefold()), None)
+            if piece is None:
+                raise ValueError(f"Impossible de créer la pièce {nom}.")
+            resultat = self.enregistrer(piece["id"], {
+                "position_x": x, "position_z": z, "largeur": largeur,
+                "profondeur": profondeur, "hauteur": 2.7, "etage": 1, "forme": None,
+            })
+            if resultat is None:
+                raise ValueError(f"Impossible d'enregistrer la géométrie de {nom}.")
+        return self.lister()
+
     def lister(self) -> list[dict]:
         pieces = self.pieces.lister()
         with sqlite3.connect(self.db_path) as connexion:

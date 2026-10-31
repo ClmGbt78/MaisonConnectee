@@ -269,3 +269,18 @@ def test_importer_rez_de_chaussee_cree_les_pieces_et_est_rejouable(plan):
     assert par_nom["Chambre 1-2"]["largeur"] == 5.8
     assert par_nom["Chambre 1-2"]["etage"] == 0
     assert len(plan.importer_plan_rez_de_chaussee()) == len(pieces)
+
+def test_importer_etage_cree_les_pieces_au_niveau_un_et_est_rejouable(plan):
+    pieces = plan.importer_plan_etage()
+    etage = [piece for piece in pieces if piece["etage"] == 1]
+    par_nom = {piece["nom"]: piece for piece in etage}
+    assert {
+        "Chambre 1 étage", "Chambre 2 étage", "Chambre 3 étage",
+        "Dressing étage", "WC étage", "Salle de bains étage",
+        "Palier et cage d'escalier",
+    } <= set(par_nom)
+    assert par_nom["Chambre 1 étage"]["largeur"] == 3.0
+    assert par_nom["Chambre 2 étage"]["largeur"] == 4.5
+    assert par_nom["Chambre 3 étage"]["largeur"] == 3.0
+    assert all(piece["etage"] == 1 for piece in etage)
+    assert len(plan.importer_plan_etage()) == len(pieces)

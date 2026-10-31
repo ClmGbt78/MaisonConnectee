@@ -36,6 +36,14 @@ def importer_plan_rez_de_chaussee(utilisateur: dict = Depends(require_admin)):
         raise HTTPException(status_code=409, detail=f"Import du plan impossible : {erreur}") from erreur
 
 
+@router.post("/importer-etage")
+def importer_plan_etage(utilisateur: dict = Depends(require_admin)):
+    try:
+        return repository.importer_plan_etage()
+    except Exception as erreur:
+        raise HTTPException(status_code=409, detail=f"Import de l'étage impossible : {erreur}") from erreur
+
+
 @router.get("")
 def lister_geometries(utilisateur: dict = Depends(get_current_user)):
     return repository.lister()
