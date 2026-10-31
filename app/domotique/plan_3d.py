@@ -134,13 +134,20 @@ class Plan3DRepository:
             ("Bains", "Rez-de-chaussée", "#76AFC0", -4.30, 1.10, 2.20, 1.80),
             ("WC", "Rez-de-chaussée", "#76AFC0", -1.90, 1.10, 1.50, 1.50),
             ("Dégagement", "Rez-de-chaussée", "#B5A6C8", 0.00, 0.70, 3.00, 1.50),
-            ("Chambre 1-2", "Anciennes chambres 1 et 2 réunies", "#91B78C", -2.90, 4.50, 5.80, 3.00),
+            ("Chambre 1-2", "Anciennes chambres 1 et 2 réunies", "#91B78C", -2.90, 3.00, 5.80, 3.00),
             ("Entrée", "Rez-de-chaussée", "#B5A6C8", 1.00, 3.50, 1.80, 2.00),
             ("Cuisine", "Rez-de-chaussée", "#D6B58A", 3.60, 3.00, 2.80, 3.00),
         ]
         existantes = {piece["nom"].casefold(): piece for piece in self.pieces.lister()}
+        alias = {"chambre 1-2": ("chambre",), "cage d'escalier": ("chambre 3",)}
         for nom, description, couleur, x, z, largeur, profondeur in plan:
             piece = existantes.get(nom.casefold())
+            if piece is None:
+                ancien = next((existantes.get(nom_alias) for nom_alias in alias.get(nom.casefold(), ()) if existantes.get(nom_alias)), None)
+                if ancien is not None:
+                    piece = self.pieces.modifier(ancien["id"], nom, description, couleur)
+                    existantes.pop(ancien["nom"].casefold(), None)
+                    existantes[nom.casefold()] = piece
             if piece is None:
                 try:
                     piece = self.pieces.ajouter(nom, description, couleur)
